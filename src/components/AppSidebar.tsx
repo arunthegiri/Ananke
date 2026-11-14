@@ -1,7 +1,16 @@
 import { useMemo } from "react";
 import { useSyncExternalStore } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Database, History, Activity, Gauge, Brain, Sparkles, TerminalSquare } from "lucide-react";
+import {
+  LineChart,
+  Database,
+  History,
+  Activity,
+  Gauge,
+  Brain,
+  Sparkles,
+  TerminalSquare,
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEndpointStatus, subscribeProbe, type EndpointName } from "@/lib/api/health-probe";
 import { cn } from "@/lib/utils";
@@ -16,13 +25,13 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
+  { to: "/copilot", label: "Copilot", icon: Sparkles },
   { to: "/", label: "Charts", icon: LineChart, exact: true },
   { to: "/data", label: "Data", icon: Database },
   { to: "/backtesting", label: "Backtesting", icon: History },
   { to: "/live", label: "Live", icon: Activity },
   { to: "/metrics", label: "Metrics", icon: Gauge },
   { to: "/models", label: "Models", icon: Brain },
-  { to: "/copilot", label: "Copilot", icon: Sparkles },
 ];
 
 /** Default (empty) badge map — AppSidebarWithHealth below supplies the live one. */

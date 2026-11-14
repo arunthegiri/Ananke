@@ -114,6 +114,63 @@ async function startServer() {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
+// ── Loading screen ──────────────────────────────────────────────────────────
+
+const SPLASH_MIN_MS = 1400;
+let splash = null;
+let splashShownAt = 0;
+
+function createSplash() {
+  splash = new BrowserWindow({
+    width: 420,
+    height: 300,
+    frame: false,
+    resizable: false,
+    movable: true,
+    transparent: true,
+    hasShadow: true,
+    show: false,
+    center: true,
+    skipTaskbar: true,
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
+  });
+  splash.once("ready-to-show", () => {
+    splash.show();
+    splashShownAt = Date.now();
+  });
+  splash.on("closed", () => (splash = null));
+  splash.loadFile(path.join(__dirname, "splash.html"));
+}
+
+function setSplashStatus(text, warn = false) {
+  if (!splash || splash.isDestroyed()) return;
+  const js = `(() => { const el = document.getElementById("status");
+    if (el) { el.textContent = ${JSON.stringify(text)}; el.classList.toggle("warn", ${warn}); } })()`;
+  splash.webContents.executeJavaScript(js).catch(() => {});
+}
+
+function closeSplash() {
+  if (!splash || splash.isDestroyed()) return;
+  const wait = Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt));
+  setTimeout(() => splash && !splash.isDestroyed() && splash.close(), wait);
+}
+
+/** The Spring backend the web app talks to (baked into the web build). */
+const BACKEND_URL = process.env.ANANKE_BACKEND_URL || "http://localhost:8080";
+
+async function backendReachable() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/settings/llm`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 function createWindow(baseUrl) {
   const win = new BrowserWindow({
     width: 1600,
@@ -135,7 +192,12 @@ function createWindow(baseUrl) {
   const reveal = () => {
     if (!shown && !win.isDestroyed()) {
       shown = true;
-      win.show();
+      closeSplash();
+      // Let the splash fade before the terminal appears.
+      setTimeout(
+        () => !win.isDestroyed() && win.show(),
+        Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt)),
+      );
     }
   };
   win.once("ready-to-show", reveal);
@@ -211,7 +273,9 @@ let baseUrl;
 
 app.whenReady().then(async () => {
   buildMenu();
+  createSplash();
   try {
+    setSplashStatus("Starting research engine…");
     baseUrl = await startServer();
   } catch (err) {
     console.error("[ananke] failed to start embedded server", err);
@@ -219,6 +283,15 @@ app.whenReady().then(async () => {
     dialog.showErrorBox("Ananke failed to start", String(err && err.stack ? err.stack : err));
     app.quit();
     return;
+  }
+
+  setSplashStatus("Connecting to market data…");
+  if (await backendReachable()) {
+    setSplashStatus("Loading workspace…");
+  } else {
+    // The app still opens — panels explain what's missing — but say so up front.
+    setSplashStatus("Backend offline — start Docker to load data", true);
+    await sleep(1800);
   }
   createWindow(baseUrl);
 

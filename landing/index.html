@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Ananke — AI-native financial research</title>
+    <title>anankε — AI-native financial research</title>
     <meta
       name="description"
       content="Ananke turns market questions into reproducible evidence. An AI research copilot, backtesting and a desktop research terminal — bring your own model."
@@ -76,6 +76,19 @@
         gap: 10px;
         font-weight: 600;
         letter-spacing: 0.02em;
+      }
+      .word .eps {
+        font-family: "Times New Roman", Georgia, serif;
+        font-style: italic;
+        font-weight: 400;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        padding-right: 0.06em;
+      }
+      .brand .word {
+        font-size: 18px;
       }
       .brand img {
         width: 28px;
@@ -468,7 +481,7 @@
   <body>
     <nav>
       <div class="wrap">
-        <a href="#" class="brand"><img src="icon.svg" alt="" />Ananke</a>
+        <a href="#" class="brand" aria-label="Ananke"><img src="icon.svg" alt="" /><span class="word">anank<span class="eps">ε</span></span></a>
         <div class="links">
           <a href="#how">How it works</a>
           <a href="#evidence">Evidence</a>
@@ -660,7 +673,7 @@
       <div class="wrap">
         <div class="download">
           <img src="icon.svg" alt="Ananke app icon" />
-          <h2>Ananke for macOS</h2>
+          <h2><span class="word">anank<span class="eps">ε</span></span> for macOS</h2>
           <p class="sub">One universal app for Apple Silicon and Intel Macs.</p>
           <div class="cta">
             <a class="btn btn-primary" href="downloads/Ananke-0.1.0-universal.dmg" download>
@@ -677,7 +690,7 @@
 
     <footer>
       <div class="wrap">
-        <span>© 2026 Ananke</span>
+        <span>© 2026 <span class="word">anank<span class="eps">ε</span></span></span>
         <span>Research software. Not investment advice. Past performance does not predict future results.</span>
       </div>
     </footer>

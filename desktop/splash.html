@@ -1,0 +1,150 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;" />
+    <style>
+      :root {
+        --bg: #07090c;
+        --border: #1d242e;
+        --text: #e6e9ee;
+        --muted: #7d8796;
+        --accent: #5b9cff;
+        --accent-2: #93c5fd;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, sans-serif;
+        color: var(--text);
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: default;
+      }
+      .card {
+        position: absolute;
+        inset: 0;
+        border-radius: 18px;
+        border: 1px solid var(--border);
+        background:
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91, 156, 255, 0.16), transparent 70%),
+          var(--bg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        overflow: hidden;
+        -webkit-app-region: drag;
+      }
+      .mark {
+        width: 76px;
+        height: 76px;
+        animation: rise 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      .mark .line {
+        stroke-dasharray: 420;
+        stroke-dashoffset: 420;
+        animation: draw 1.4s 0.25s cubic-bezier(0.6, 0, 0.2, 1) forwards;
+      }
+      .word {
+        font-size: 34px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+        animation: rise 0.7s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+      }
+      .word .eps {
+        font-family: "Times New Roman", Georgia, serif;
+        font-style: italic;
+        font-weight: 400;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        padding-right: 2px;
+      }
+      .bar {
+        width: 180px;
+        height: 2px;
+        border-radius: 2px;
+        background: var(--border);
+        overflow: hidden;
+        margin-top: 6px;
+        animation: rise 0.7s 0.2s both;
+      }
+      .bar::after {
+        content: "";
+        display: block;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        animation: sweep 1.3s ease-in-out infinite;
+      }
+      .status {
+        font-size: 12px;
+        color: var(--muted);
+        height: 16px;
+        animation: rise 0.7s 0.25s both;
+      }
+      .status.warn {
+        color: #fbbf24;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes draw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes sweep {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(260%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0s !important;
+          animation-delay: 0s !important;
+        }
+        .mark .line {
+          stroke-dashoffset: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <svg class="mark" viewBox="0 0 1024 1024" aria-hidden="true">
+        <defs>
+          <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#151a22" />
+            <stop offset="1" stop-color="#07090c" />
+          </linearGradient>
+          <linearGradient id="fg" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0" stop-color="#3b82f6" />
+            <stop offset="1" stop-color="#93c5fd" />
+          </linearGradient>
+        </defs>
+        <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)" stroke="#2a3240" stroke-width="3" />
+        <path d="M300 724 L512 300 L724 724" fill="none" stroke="url(#fg)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round" />
+        <path class="line" d="M372 592 L448 532 L520 572 L652 456" fill="none" stroke="#e5e7eb" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <div class="word">anank<span class="eps">ε</span></div>
+      <div class="bar"></div>
+      <div class="status" id="status">Starting…</div>
+    </div>
+  </body>
+</html>
