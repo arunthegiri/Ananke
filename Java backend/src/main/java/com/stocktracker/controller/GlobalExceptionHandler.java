@@ -65,9 +65,18 @@ public class GlobalExceptionHandler {
                 .body(new ApiDto.ErrorResponse(ex.getMessage(), 400));
     }
 
+    /** Missing or unparseable query params (e.g. a malformed ISO instant) are the caller's error, not a 500. */
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiDto.ErrorResponse> handleBadParam(Exception ex) {
+        return ResponseEntity
+                .badRequest()
+                .body(new ApiDto.ErrorResponse(ex.getMessage(), 400));
+    }
+
     @ExceptionHandler(UnsupportedOperationException.class)
     public ResponseEntity<ApiDto.ErrorResponse> handleUnsupported(UnsupportedOperationException ex) {
-        log.warn("Strategy cannot be re-run: {}", ex.getMessage());
+        log.warn("Unsupported operation: {}", ex.getMessage());
         return ResponseEntity
                 .unprocessableEntity()
                 .body(new ApiDto.ErrorResponse(ex.getMessage(), 422));

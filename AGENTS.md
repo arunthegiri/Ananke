@@ -21,7 +21,7 @@ npm run format       # Prettier (write)
 
 npm run test:visual        # Playwright visual + behavioural suite (build doc §2 harness)
 npm run test:visual:update # …re-record baselines (review every diff in the PR)
-npm run test:unit          # plain-node unit tests: chart theme, calendar, correlation, distributions
+npm run test:unit          # plain-node unit tests: chart theme, calendar, correlation, distributions, instrument keys, session calendars, option greeks/IV/chain
 npm run test:backend       # Java backend tests (JUnit + Testcontainers) via maven:3.9-eclipse-temurin-17 in Docker
 npm run test:executor      # stdlib unittest for executor/executor.py
 ```
@@ -91,6 +91,11 @@ src/
   lib/correlation.ts ← §15.1 pure correlation math (log returns, timestamp alignment, Pearson matrix)
   lib/pnl-distribution.ts ← §15.4 B9 bindings: PnL by ET hour / ET weekday / outcome bucket
   lib/event-calendar.ts ← §15.3 B5 event feed + `blackoutWindows()` (the machine-readable half the risk manager consumes)
+  lib/instruments.ts ← multi-asset P1 (issue #8): canonical instrument keys for every asset class (AAPL · ^SPX · AAPL261218C00200000 · ESZ26@CME · ES1! · BTC/USD), parse/build, asset class → session calendar. Java twin: `com.stocktracker.instrument.InstrumentKey`
+  lib/session-calendar.ts ← per-asset trading hours: US_EQUITY (delegates to market-calendar.ts), CME_GLOBEX (Sun 18:00 → Fri 17:00 ET, daily 17:00 halt; CME holidays not modelled), CRYPTO_24_7
+  lib/options/greeks.ts ← BSM + Black-76 price/greeks (Alpaca's units: Θ per day, vega per vol pt, ρ per rate pt) + guarded Newton IV solver
+  lib/options/chain.ts ← contracts → straddle rows (primitives only); vendor IV/greeks first, model fallback from a two-sided mid (source recorded per side); ATM strike window
+  lib/api/marketdata.ts ← /api/bars (any key → PriceBar), /api/options/expirations, /api/options/chain. `pricesApi.range` routes non-equity keys here, so charts take `?symbols=BTC/USD` unchanged
   lib/data/economic-releases.ts ← maintained FOMC/CPI/NFP schedule (ET dates + times, `VERIFIED_THROUGH_DATE`)
   lib/realtime/     ← §14 M5 hot path: socket.ts (flagged transport + backoff + ?wsMock=1), symbol-stores.ts (per-symbol useSyncExternalStore cells), coalesce.ts (module-scope rAF flusher)
   lib/python-export.ts ← generates pandas + SQLAlchemy snippets mirroring the UI query
@@ -334,9 +339,9 @@ Architecture decisions (M0):
   (`Workspaces.LOCAL`), and no API accepts a workspace. This is a seam for hosted use; it is not
   authorization.
 - **Flyway allocation.**
-  - V8 = agent-skills, and V10 = this work.
-  - **V9 is claimed twice**: `feature/cloud-compute` has `V9__cloud_compute.sql` and
-    `feature/multi-asset` has `V9__instruments.sql`. Resolve that before either merges.
+  - V7 = packs, V8 = agent-skills, V9 = cloud-compute, V10 = this work,
+    V11 = multi-asset instruments, V12 = multi-asset bars. (multi-asset's V9/V10 were renumbered
+    to V11/V12 when everything merged to `main`.)
   - Claim the next free number in this table when you add a migration.
 
 Load-bearing rules (W1):
@@ -491,6 +496,9 @@ Backend endpoints currently implemented:
 - `GET /api/strategies/{name}/results` (every persisted run — what the Results tab hydrates from)
 - `POST /api/copilot/research`, `POST /api/copilot/chat` (SSE; 503 when no LLM provider is configured — see `LLM_PROVIDER` below)
 - `GET /api/strategies/active`, `GET /api/account`, `GET /api/positions`, `GET /api/models`
+- `GET /api/bars?key=&from=&to=` → `{key, source, mode, bars[]}` (multi-asset P2). Equities delegate to the stock_prices path unchanged; crypto fills the `bars` hypertable (V12) via `bar_coverage`. Asset classes without a provider return 422. Not a `{data}` envelope on purpose: `mode` (REALTIME/DELAYED) must survive `apiFetch`.
+- `GET /api/options/expirations?underlying=`, `GET /api/options/chain?underlying=&expiry=` — Alpaca, `ALPACA_OPTIONS_FEED` (default `indicative` = free, delayed → `mode: DELAYED`, which the UI labels). On-demand + 15s cache, never stored. Stocks/ETFs only (422 otherwise).
+- `GET /api/instruments?assetClass=`, `GET /api/instruments/lookup?key=`, `POST /api/instruments {key}` (multi-asset P1). Keys travel as query/body, never path segments (`/`, `!`, `^`). Futures roots without a `FuturesSpecs` entry are refused (400), never given a guessed multiplier. Tracking a symbol via `POST /api/symbols` also registers its instrument.
 
 Waiting on the backend (each renders a §6 `PanelState kind="pending"` naming the exact endpoint, never a blank panel — decision D5):
 - `GET /api/metrics/engine?from=&to=` → `LatencySample[]` (§15.4 B7; shape proposed in `lib/api/metrics.ts`)

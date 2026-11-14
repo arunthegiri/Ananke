@@ -18,7 +18,7 @@ npm run format       # Prettier (write)
 
 npm run test:visual        # Playwright suite (visual baselines + behavioural contracts)
 npm run test:visual:update # re-record baselines — review every diff
-npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions)
+npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions, instruments, sessions, options)
 npm run test:backend       # Java backend tests in Docker (Maven + Testcontainers; needs Docker running)
 npm run test:executor      # stdlib unittest for executor/executor.py (no SDK, no DB)
 ```
@@ -74,7 +74,7 @@ src/
   components/terminal/ ← the design system: TerminalPanel, tabs, PanelState, controls/, table/
   components/copilot/  ← copilot surfaces: CodeBlock, BacktestCard, CopilotMarkdown
   components/metrics/  ← §15 analysis panels (strategy table, universe ranking, correlation, …)
-  routes/           ← /, /data, /backtesting, /live, /metrics, /models, /copilot, /packs, /settings (+ dev/controls, DEV-only)
+  routes/           ← /, /data, /options, /backtesting, /live, /metrics, /models, /copilot, /packs, /settings (+ dev/controls, DEV-only)
 executor/           ← stdlib Python code executor mounted into the Jupyter container (copilot M0)
   routeTree.gen.ts  ← AUTO-GENERATED — never edit
 ```
@@ -169,6 +169,22 @@ calendar, distribution buckets, `/data`'s range inputs and its `time (ET)` colum
 value converted through the *runtime's* local zone differs between the SSR process and the
 browser, which is a hydration bug as well as a product one.
 
+Not every instrument keeps equity hours: `lib/session-calendar.ts` maps an asset class to its
+calendar (US equity, CME Globex, crypto 24/7), still on the same `Intl`-derived ET math.
+
+### Instruments (multi-asset, issue #8)
+
+Every asset class shares one canonical key: `AAPL`, `^SPX`, `AAPL261218C00200000` (compact OCC),
+`ESZ26@CME`, `ES1!`, `BTC/USD`. `lib/instruments.ts` and the backend's `InstrumentKey` must parse
+identically. Their tests mirror each other, so change both together. Futures need the `@exchange`
+suffix so a bare `ESZ26` can never be mistaken for a stock. Futures multipliers come only from the
+backend's `FuturesSpecs`, never a default.
+
+Market data is provider-routed per asset class (`marketdata/` in the backend). Today Alpaca supplies
+crypto bars and option chains. Option data on the free `indicative` feed is **delayed** and must be
+labelled as such: every market-data response carries a `mode`. Hosted real-time OPRA/CME display needs
+licensing (issue #8).
+
 ### Backend contract
 
 Responses are wrapped as `{ data: [...], count: N }` or `{ content: [...] }`; `apiFetch` unwraps
@@ -182,8 +198,8 @@ The Agent Integration spec (`Dev-notes/Ananke Agent Integration.md`) is being bu
 `ananke.features.*` flags that default to off. Per-agent model routing lives in
 `com.stocktracker.agent.model`. Models resolve per role into immutable snapshots, and nothing in
 that path reads or changes the legacy global provider. Never wrap the `@Primary` legacy
-`LLMClient`. AGENTS.md "Agent runtime" has the rules and the Flyway allocation (V9 is
-double-claimed; this work uses V10).
+`LLMClient`. AGENTS.md "Agent runtime" has the rules and the Flyway allocation (V9 cloud-compute, V10 this
+work, V11/V12 multi-asset).
 
 ### Environment variables
 
@@ -194,6 +210,7 @@ double-claimed; this work uses V10).
 | `VITE_WS_ENABLED` | unset (off) | `1` enables the hot path; off = polling, unchanged |
 | `VITE_JUPYTER_URL` | `http://localhost:8890` | JupyterLab URL for "Open in JupyterLab" |
 | `VITE_FRED_API_KEY` | unset | Optional: live FRED release dates supersede the maintained calendar |
+| `ALPACA_OPTIONS_FEED` (backend) | `indicative` | `opra` = real-time option quotes (paid Alpaca subscription) |
 
 Backend-side (root `.env`, passed to `stock-tracker` by compose):
 

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PacksRouteImport } from './routes/packs'
+import { Route as OptionsRouteImport } from './routes/options'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as MetricsRouteImport } from './routes/metrics'
 import { Route as LiveRouteImport } from './routes/live'
@@ -29,6 +30,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const PacksRoute = PacksRouteImport.update({
   id: '/packs',
   path: '/packs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OptionsRoute = OptionsRouteImport.update({
+  id: '/options',
+  path: '/options',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelsRoute = ModelsRouteImport.update({
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof LiveRoute
   '/metrics': typeof MetricsRoute
   '/models': typeof ModelsRoute
+  '/options': typeof OptionsRoute
   '/packs': typeof PacksRoute
   '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/live': typeof LiveRoute
   '/metrics': typeof MetricsRoute
   '/models': typeof ModelsRoute
+  '/options': typeof OptionsRoute
   '/packs': typeof PacksRoute
   '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/live': typeof LiveRoute
   '/metrics': typeof MetricsRoute
   '/models': typeof ModelsRoute
+  '/options': typeof OptionsRoute
   '/packs': typeof PacksRoute
   '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/metrics'
     | '/models'
+    | '/options'
     | '/packs'
     | '/settings'
     | '/dev/controls'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/metrics'
     | '/models'
+    | '/options'
     | '/packs'
     | '/settings'
     | '/dev/controls'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/metrics'
     | '/models'
+    | '/options'
     | '/packs'
     | '/settings'
     | '/dev/controls'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   LiveRoute: typeof LiveRoute
   MetricsRoute: typeof MetricsRoute
   ModelsRoute: typeof ModelsRoute
+  OptionsRoute: typeof OptionsRoute
   PacksRoute: typeof PacksRoute
   SettingsRoute: typeof SettingsRoute
   DevControlsRoute: typeof DevControlsRoute
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/packs'
       fullPath: '/packs'
       preLoaderRoute: typeof PacksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/options': {
+      id: '/options'
+      path: '/options'
+      fullPath: '/options'
+      preLoaderRoute: typeof OptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/models': {
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   LiveRoute: LiveRoute,
   MetricsRoute: MetricsRoute,
   ModelsRoute: ModelsRoute,
+  OptionsRoute: OptionsRoute,
   PacksRoute: PacksRoute,
   SettingsRoute: SettingsRoute,
   DevControlsRoute: DevControlsRoute,

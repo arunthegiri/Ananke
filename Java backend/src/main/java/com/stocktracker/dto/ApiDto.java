@@ -31,6 +31,68 @@ public class ApiDto {
         private Instant createdAt;
     }
 
+    /** Request body for POST /api/instruments (multi-asset P1). */
+    @Data
+    public static class InstrumentRequest {
+        @NotBlank(message = "key must not be blank")
+        private String key;
+    }
+
+    /**
+     * An instrument of any asset class. Mirrors {@code Instrument} in
+     * src/lib/instruments.ts; the per-class blocks are null when not applicable.
+     */
+    @Data
+    public static class InstrumentResponse {
+        private Long       id;
+        private String     key;
+        private String     assetClass;
+        private String     symbol;
+        private String     name;
+        private String     exchange;
+        private String     currency;
+        private BigDecimal multiplier;
+        private BigDecimal tickSize;
+        private String     sessionCalendar;
+        private String     underlyingKey;
+        private OptionSpec option;
+        private FutureSpec future;
+        private CryptoSpec crypto;
+        private boolean    active;
+
+        public record OptionSpec(String expiry, String right, BigDecimal strike) {}
+        public record FutureSpec(String root, String contractMonth, String lastTradeDate) {}
+        public record CryptoSpec(String base, String quote) {}
+    }
+
+    /** One 1-minute bar from GET /api/bars (multi-asset P2). Volume is decimal for crypto. */
+    public record BarResponse(Instant time, String key, BigDecimal open, BigDecimal high, BigDecimal low,
+                              BigDecimal close, BigDecimal volume, BigDecimal vwap, Long tradeCount) {}
+
+    /**
+     * GET /api/bars envelope. Deliberately NOT {data,count}: the frontend's
+     * apiFetch would unwrap that and drop {@code source}/{@code mode}, and the
+     * mode is what tells the UI to label data as delayed.
+     */
+    public record BarsResponse(String key, String source, String mode, List<BarResponse> bars) {}
+
+    /** GET /api/options/expirations. */
+    public record OptionExpirationsResponse(String underlying, String source, List<String> expirations) {}
+
+    /** One row of GET /api/options/chain — a single contract. */
+    public record OptionContractResponse(
+            String key, String right, BigDecimal strike,
+            Double bid, Double ask, Long bidSize, Long askSize, Double last,
+            Long volume, Long openInterest, Double prevClose,
+            Double iv, Double delta, Double gamma, Double theta, Double vega, Double rho,
+            Instant quoteTime) {}
+
+    /** GET /api/options/chain. {@code mode} = DELAYED on Alpaca's free indicative feed. */
+    public record OptionChainResponse(
+            String underlying, String expiry, Double underlyingPrice,
+            String source, String feed, String mode, Instant asOf,
+            List<OptionContractResponse> contracts) {}
+
     /** Response payload for a single price record */
     @Data
     public static class PriceResponse {

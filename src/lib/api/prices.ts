@@ -1,5 +1,7 @@
 import { apiFetch } from "./client";
+import { marketDataApi } from "./marketdata";
 import type { BackfillJob, CoverageBlock, CoverageBlockResponse, PriceBar } from "./types";
+import { assetClassOfKey } from "@/lib/instruments";
 
 export const pricesApi = {
   latest: (symbol: string, hours = 1) =>
@@ -7,10 +9,21 @@ export const pricesApi = {
       query: { hours },
     }),
 
-  range: (symbol: string, from: string, to: string) =>
-    apiFetch<PriceBar[]>(`/api/prices/${encodeURIComponent(symbol)}/range`, {
+  /**
+   * 1-minute bars for a range. Equities keep their original endpoint; any
+   * other asset class (crypto today) goes through /api/bars by canonical key
+   * and comes back in the same PriceBar shape, so every chart, table and
+   * correlation consumer works unchanged (multi-asset P2, issue #8).
+   */
+  range: (symbol: string, from: string, to: string) => {
+    const assetClass = assetClassOfKey(symbol);
+    if (assetClass !== null && assetClass !== "EQUITY") {
+      return marketDataApi.barsAsPriceBars(symbol, from, to);
+    }
+    return apiFetch<PriceBar[]>(`/api/prices/${encodeURIComponent(symbol)}/range`, {
       query: { from, to },
-    }),
+    });
+  },
 
   /**
    * §16: contiguous covered blocks within [from, to] (backend splits on holes
@@ -44,11 +57,9 @@ export const pricesApi = {
       query: { from, to },
     }),
 
-  getJob: (jobId: string) =>
-    apiFetch<BackfillJob>(`/api/prices/jobs/${jobId}`),
+  getJob: (jobId: string) => apiFetch<BackfillJob>(`/api/prices/jobs/${jobId}`),
 
-  listJobs: (symbol: string) =>
-    apiFetch<BackfillJob[]>(`/api/prices/jobs`, { query: { symbol } }),
+  listJobs: (symbol: string) => apiFetch<BackfillJob[]>(`/api/prices/jobs`, { query: { symbol } }),
 
   retryJob: (jobId: string) =>
     apiFetch<BackfillJob>(`/api/prices/jobs/${jobId}/retry`, { method: "POST" }),

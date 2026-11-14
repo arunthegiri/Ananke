@@ -17,6 +17,9 @@ const readFixture = <T>(name: string): T =>
   JSON.parse(readFileSync(join(FIXTURE_DIR, name), "utf8")) as T;
 
 const pricesFixture = readFixture<PriceBar[]>("prices-range.json");
+// Recorded from Alpaca's indicative feed (AAPL, 2026-11-20 expiry, 24 contracts nearest spot).
+const optionChainFixture = readFixture<unknown>("options-chain-aapl.json");
+const optionExpirationsFixture = readFixture<unknown>("options-expirations-aapl.json");
 const multidayPricesFixture = readFixture<PriceBar[]>("prices-range-multiday.json");
 const symbolsFixture = readFixture<Symbol[]>("symbols.json");
 const coverageFixture = readFixture<CoverageBlockResponse[]>("coverage-blocks.json");
@@ -95,6 +98,12 @@ export async function stubApi(page: Page): Promise<{ unmatched: string[] }> {
   );
   await page.route(/\/api\/prices\/jobs/, (route) => route.fulfill(json({ data: [], count: 0 })));
 
+  // ── Options (multi-asset P2) ────────────────────────────────────────────────
+  await page.route(/\/api\/options\/expirations/, (route) =>
+    route.fulfill(json(optionExpirationsFixture)),
+  );
+  await page.route(/\/api\/options\/chain/, (route) => route.fulfill(json(optionChainFixture)));
+
   // ── Deliberate 404s (unimplemented on the real backend — see note above) ────
   await page.route(/\/api\/trades\/range/, (route) => route.fulfill(json({ data: [] }, 404)));
   await page.route(/\/api\/metrics\/engine/, (route) => route.fulfill(json({ data: [] }, 404)));
@@ -114,7 +123,10 @@ export async function stubApi(page: Page): Promise<{ unmatched: string[] }> {
   // swallow the active-strategies call and B1's mode badges would all read
   // BACKTEST.
   await page.route(/\/api\/strategies\/(?!active)([^/?]+)(\/run)?(\?|$)/, (route) => {
-    const match = route.request().url().match(/\/api\/strategies\/([^/?]+)/);
+    const match = route
+      .request()
+      .url()
+      .match(/\/api\/strategies\/([^/?]+)/);
     const name = decodeURIComponent(match?.[1] ?? "");
     const detail = strategyDetailFixture[name];
     if (!detail) return route.fulfill(json({ data: null }, 404));

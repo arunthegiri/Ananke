@@ -12,6 +12,7 @@ import {
   TerminalSquare,
   Settings,
   Package,
+  Layers,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEndpointStatus, subscribeProbe, type EndpointName } from "@/lib/api/health-probe";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 type NavRoute =
   | "/"
   | "/data"
+  | "/options"
   | "/backtesting"
   | "/live"
   | "/metrics"
@@ -39,6 +41,7 @@ const NAV: NavItem[] = [
   { to: "/copilot", label: "Copilot", icon: Sparkles },
   { to: "/", label: "Charts", icon: LineChart, exact: true },
   { to: "/data", label: "Data", icon: Database },
+  { to: "/options", label: "Options", icon: Layers },
   { to: "/backtesting", label: "Backtesting", icon: History },
   { to: "/live", label: "Live", icon: Activity },
   { to: "/metrics", label: "Metrics", icon: Gauge },
