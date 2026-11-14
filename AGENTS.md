@@ -266,7 +266,15 @@ over SSH on stdin with validated args. Load-bearing rules:
 - **Tool calling is probed, not assumed.** "Use for Copilot" is refused unless the live probe passed,
   because the copilot always sends tools.
 - The backend image installs `openssh-client` (Dockerfile); Packs use the system `ssh`, not a JVM lib.
-- AWS/GCP: listed by `/api/compute/providers` as `available:false`. Do not fake provisioning.
+- **Cloud machines (build doc §7.5, `com.stocktracker.packs.cloud`)**: AWS is built and verified only
+  against emulators. GCP and Azure are listed as `available:false`; don't fake them. Rules:
+  - Every AWS call goes through `AwsGateway` (fake in `AwsCloudTest`, moto in `SdkAwsGatewayMotoTest`), using AssumeRole sessions from the linked account's vault-stored key. **Never** use the default credential chain.
+  - Nothing billable happens without a fresh, single-use, acknowledged estimate (`provision(estimateId, acknowledgeBilling)`), and every create/start/stop/terminate writes `agent_audit_log` against the Pack.
+  - The host key comes from `GetConsoleOutput`, never a network scan, and no key means terminate.
+  - Resources must carry `ananke-managed=true` + `ananke-link=<link tag>`; the IAM template only allows touching tagged resources.
+  - The orphan finder only lists.
+  - `ananke-access.yaml` is the security boundary: change it only with cfn-lint and a re-review.
+  - Test literals must not look like AWS keys (GitHub push protection blocks them): build them at runtime.
 - Cloud agent skills for Pack operations: see "Agent skills (Packs build doc §9)" below.
 
 ### Agent skills (Packs build doc §9)
@@ -424,6 +432,10 @@ Backend-side (`.env`, passed to `stock-tracker` by compose):
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset / `https://api.anthropic.com` / `claude-sonnet-4-5` | Used only when `LLM_PROVIDER=anthropic` |
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | Legacy names — still read as fallbacks when the `LLM_*` vars above are unset |
 | `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where the Java container reaches `executor.py` |
+| `ANANKE_AWS_ENDPOINT` / `ANANKE_AWS_PRICING_ENDPOINT` | unset (real AWS) | Cloud §7: emulator overrides (moto / a fake price server) — tests only |
+| `ANANKE_AWS_DLAMI_PARAMETER` | the public DLAMI Ubuntu 22.04 SSM path | Cloud §7: emulators can't hold names under `/aws/` |
+| `ANANKE_AWS_BOOT_TIMEOUT_MINUTES` / `ANANKE_AWS_HOST_KEY_TIMEOUT_MINUTES` | 10 / 10 | Cloud §7: provisioning waits |
+| `ANANKE_EGRESS_IP_URL` | `https://checkip.amazonaws.com` | Cloud §7: the backend's public IP for the VM's SSH rule |
 | `ANANKE_SKILLS_FETCH_DIR` | `./data/skills` | Agent skills: install dir for `distribution: "fetch"` packs (none today) |
 | `ANANKE_SKILLS_SETTINGS_FILE` | `./data/skills-settings.json` | Agent skills: packs switched off in Settings |
 | `ANANKE_SKILLS_BUNDLE_DIR` | unset | Agent skills: load a whole bundle from disk instead of the jar (same checksum rules) |

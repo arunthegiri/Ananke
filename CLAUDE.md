@@ -147,7 +147,8 @@ the `ObjectMapper`/`SseEmitter` traps.
 
 `/packs` deploys a pinned Hugging Face model with vLLM on the user's own SSH-reachable GPU machine and
 registers it as copilot provider `pack:<id>`. Secrets are AES-GCM encrypted (`SecretVault`), the only
-remote code is `resources/packs/vllm-bootstrap.sh`, and AWS/GCP provisioning is not built. Contract and
+remote code is `resources/packs/vllm-bootstrap.sh`. AWS GPU provisioning (Machines → Cloud) is built
+behind a cost estimate you must confirm and is verified only against emulators; GCP/Azure are not built. Contract and
 security rules: `Dev-notes/Ananke Packs Build Doc.md` and AGENTS.md.
 
 ### Agent skills (Packs §9)
