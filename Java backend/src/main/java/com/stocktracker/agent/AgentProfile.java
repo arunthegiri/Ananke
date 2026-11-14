@@ -7,8 +7,14 @@ import java.util.Set;
  * topics are relevant to it, and whether it may be offered cloud action tools at all.
  *
  * @param topics skill topics this agent sees; {@code null} = every enabled skill.
+ * @param dataConnectors whether linked data connectors (Connectors roadmap §0.2) are offered as tools.
  */
-public record AgentProfile(String id, String label, Set<String> topics, boolean cloudActions) {
+public record AgentProfile(String id, String label, Set<String> topics, boolean cloudActions, boolean dataConnectors) {
+
+    /** Profiles from before data connectors existed: no connector tools. */
+    public AgentProfile(String id, String label, Set<String> topics, boolean cloudActions) {
+        this(id, label, topics, cloudActions, false);
+    }
 
     /** Topics a skill may declare (scripts/skills/sources.json). */
     public static final Set<String> KNOWN_TOPICS =
@@ -16,7 +22,7 @@ public record AgentProfile(String id, String label, Set<String> topics, boolean 
 
     /** The copilot's chat mode: every enabled skill. Research mode composes no skills. */
     public static final AgentProfile COPILOT =
-            new AgentProfile("copilot", "Copilot (chat)", null, true);
+            new AgentProfile("copilot", "Copilot (chat)", null, true, true);
 
     /** The Pack operations agent: compute, GPU capacity, cost, identity and CLI guidance. */
     public static final AgentProfile PACK_OPS =

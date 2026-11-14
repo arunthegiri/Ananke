@@ -8,6 +8,7 @@ import com.stocktracker.agent.actions.CloudToolGate;
 import com.stocktracker.agent.skills.SkillRegistry;
 import com.stocktracker.agent.skills.SkillSettingsService;
 import com.stocktracker.agent.skills.SkillToolset;
+import com.stocktracker.connectors.ConnectorToolGate;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -61,7 +62,8 @@ public class AgentConfig {
 
     @Bean
     public AgentCapabilities agentCapabilities(SkillToolset skills, CloudToolGate gate,
-                                               ActionConfirmationService guard) {
-        return new AgentCapabilities(skills, gate, guard);
+                                               ActionConfirmationService guard,
+                                               ObjectProvider<ConnectorToolGate> connectors) {
+        return new AgentCapabilities(skills, gate, guard, connectors.getIfAvailable());
     }
 }
