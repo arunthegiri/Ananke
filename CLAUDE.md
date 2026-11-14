@@ -175,6 +175,15 @@ them. Endpoints that do not exist yet (`/api/metrics/*`, `/api/orders`, `/api/de
 socket) are built frontend-complete behind `PanelState kind="pending"`, which names the exact
 endpoint it is waiting on. Nothing blocks on backend work; nothing renders a blank rectangle.
 
+### Agent runtime (in progress — issue #9)
+
+The Agent Integration spec (`Dev-notes/Ananke Agent Integration.md`) is being built behind
+`ananke.features.*` flags that default to off. Per-agent model routing lives in
+`com.stocktracker.agent.model`. Models resolve per role into immutable snapshots, and nothing in
+that path reads or changes the legacy global provider. Never wrap the `@Primary` legacy
+`LLMClient`. AGENTS.md "Agent runtime" has the rules and the Flyway allocation (V9 is
+double-claimed; this work uses V10).
+
 ### Environment variables
 
 | Var | Default | Purpose |

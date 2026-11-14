@@ -18,18 +18,20 @@ import java.util.List;
  * Records every request (path, headers, parsed JSON body) and replies with
  * queued canned responses.
  */
-final class FakeLlmServer implements AutoCloseable {
+public final class FakeLlmServer implements AutoCloseable {
 
-    record Recorded(String path, Headers headers, JsonNode body) { }
-    record Canned(int status, String body) { }
+    public record Recorded(String path, Headers headers, JsonNode body) { }
+    public record Canned(int status, String body) { }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final HttpServer server;
-    final List<Recorded> requests = new ArrayList<>();
+    public final List<Recorded> requests = new ArrayList<>();
     private final Deque<Canned> responses = new ArrayDeque<>();
+    /** When set, computes each reply from the request body instead of the queue. */
+    private volatile java.util.function.Function<JsonNode, Canned> responder;
 
-    FakeLlmServer() throws IOException {
+    public FakeLlmServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             byte[] in = exchange.getRequestBody().readAllBytes();
@@ -38,8 +40,13 @@ final class FakeLlmServer implements AutoCloseable {
                 requests.add(new Recorded(exchange.getRequestURI().getPath(), exchange.getRequestHeaders(), body));
             }
             Canned c;
-            synchronized (this) {
-                c = responses.isEmpty() ? new Canned(500, "{\"error\":\"no canned response\"}") : responses.poll();
+            var fn = responder;
+            if (fn != null) {
+                c = fn.apply(body);
+            } else {
+                synchronized (this) {
+                    c = responses.isEmpty() ? new Canned(500, "{\"error\":\"no canned response\"}") : responses.poll();
+                }
             }
             byte[] out = c.body().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -47,19 +54,33 @@ final class FakeLlmServer implements AutoCloseable {
             exchange.getResponseBody().write(out);
             exchange.close();
         });
+        server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(8, r -> {
+            Thread t = new Thread(r, "fake-llm");
+            t.setDaemon(true);
+            return t;
+        }));
         server.start();
     }
 
-    synchronized FakeLlmServer reply(int status, String body) {
+    public FakeLlmServer respondWith(java.util.function.Function<JsonNode, Canned> fn) {
+        this.responder = fn;
+        return this;
+    }
+
+    public synchronized List<Recorded> snapshot() {
+        return List.copyOf(requests);
+    }
+
+    public synchronized FakeLlmServer reply(int status, String body) {
         responses.add(new Canned(status, body));
         return this;
     }
 
-    String baseUrl() {
+    public String baseUrl() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
 
-    synchronized Recorded last() {
+    public synchronized Recorded last() {
         return requests.get(requests.size() - 1);
     }
 
