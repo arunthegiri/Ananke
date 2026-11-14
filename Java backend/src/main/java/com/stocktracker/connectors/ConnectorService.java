@@ -24,9 +24,9 @@ import java.util.Set;
 @Slf4j
 public class ConnectorService {
 
-    /** What a tool call returns; {@code observedAt} is when Ananke fetched it (§0.6 point-in-time). */
+    /** What a tool call returns; {@code observedAt} is when Ananke fetched it (§0.6 point-in-time). Named {@code payload}, not {@code data}: the web client unwraps {@code {data}} envelopes. */
     public record Result(String connector, String source, String tool, String attribution,
-                         Instant observedAt, boolean cached, Object data) { }
+                         Instant observedAt, boolean cached, Object payload) { }
 
     public enum Status { READY, NOT_LINKED, DISABLED, ERROR }
 

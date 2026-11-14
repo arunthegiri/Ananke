@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ResearchRouteImport } from './routes/research'
 import { Route as PacksRouteImport } from './routes/packs'
 import { Route as OptionsRouteImport } from './routes/options'
 import { Route as ModelsRouteImport } from './routes/models'
@@ -25,6 +26,11 @@ import { Route as DevControlsRouteImport } from './routes/dev/controls'
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchRoute = ResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PacksRoute = PacksRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/models': typeof ModelsRoute
   '/options': typeof OptionsRoute
   '/packs': typeof PacksRoute
+  '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
   '/jupyter-api/$': typeof JupyterApiSplatRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/models': typeof ModelsRoute
   '/options': typeof OptionsRoute
   '/packs': typeof PacksRoute
+  '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
   '/jupyter-api/$': typeof JupyterApiSplatRoute
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/models': typeof ModelsRoute
   '/options': typeof OptionsRoute
   '/packs': typeof PacksRoute
+  '/research': typeof ResearchRoute
   '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
   '/jupyter-api/$': typeof JupyterApiSplatRoute
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/options'
     | '/packs'
+    | '/research'
     | '/settings'
     | '/dev/controls'
     | '/jupyter-api/$'
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/options'
     | '/packs'
+    | '/research'
     | '/settings'
     | '/dev/controls'
     | '/jupyter-api/$'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/options'
     | '/packs'
+    | '/research'
     | '/settings'
     | '/dev/controls'
     | '/jupyter-api/$'
@@ -181,6 +193,7 @@ export interface RootRouteChildren {
   ModelsRoute: typeof ModelsRoute
   OptionsRoute: typeof OptionsRoute
   PacksRoute: typeof PacksRoute
+  ResearchRoute: typeof ResearchRoute
   SettingsRoute: typeof SettingsRoute
   DevControlsRoute: typeof DevControlsRoute
   JupyterApiSplatRoute: typeof JupyterApiSplatRoute
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research': {
+      id: '/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof ResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/packs': {
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelsRoute: ModelsRoute,
   OptionsRoute: OptionsRoute,
   PacksRoute: PacksRoute,
+  ResearchRoute: ResearchRoute,
   SettingsRoute: SettingsRoute,
   DevControlsRoute: DevControlsRoute,
   JupyterApiSplatRoute: JupyterApiSplatRoute,

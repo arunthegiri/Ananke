@@ -1,0 +1,61 @@
+{
+  "connector": {
+    "id": "sec_edgar",
+    "name": "SEC EDGAR",
+    "category": "FILINGS",
+    "licence": "FREE_PUBLIC",
+    "description": "US company filings (10-K, 10-Q, 8-K, S-1, 13D/G…), XBRL financials with filing dates, Form 4 insider trades and full-text search of filings since 2001.",
+    "attribution": "Source: U.S. Securities and Exchange Commission, EDGAR",
+    "homepage": "https://www.sec.gov/search-filings/edgar-application-programming-interfaces",
+    "fields": [
+      {
+        "key": "identity",
+        "label": "Your name and email",
+        "help": "The SEC requires every program that reads EDGAR to identify itself. Sent as the User-Agent; it is not an account and nothing is signed up for.",
+        "secret": false,
+        "optional": false,
+        "placeholder": "Jane Doe jane@example.com",
+        "set": false,
+        "hint": null
+      }
+    ],
+    "limits": ["8 / second"],
+    "tools": [
+      { "name": "sec_edgar_company", "description": "Look up a US-listed company in EDGAR by ticker." },
+      { "name": "sec_edgar_filings", "description": "Recent SEC filings for a company, newest first." },
+      { "name": "sec_edgar_financials", "description": "History of one XBRL financial concept." },
+      { "name": "sec_edgar_insider_trades", "description": "Insider transactions from recent Form 4 filings." },
+      { "name": "sec_edgar_search", "description": "Full-text search across EDGAR filings since 2001." }
+    ],
+    "keyless": false,
+    "linked": false,
+    "enabled": true,
+    "status": "NOT_LINKED",
+    "linkedAt": null,
+    "lastTestAt": null,
+    "lastTestOk": null,
+    "lastTestMessage": null,
+    "lastCallAt": null,
+    "lastErrorAt": null,
+    "lastError": null
+  },
+  "filings": {
+    "company": "Apple Inc.",
+    "cik": "0000320193",
+    "count": 3,
+    "filings": [
+      { "form": "8-K", "filed": "2026-11-09", "accepted_at": "2026-11-09T21:30:40.000Z", "period": "2026-11-05", "items": "8.01,9.01", "accession": "0001140361-26-042798", "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126042798/ef20085077_8k.htm" },
+      { "form": "10-K", "filed": "2026-11-03", "accepted_at": "2026-11-03T13:05:15.000Z", "period": "2026-09-26", "description": "10-K", "accession": "0000320193-26-000026", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000026/aapl-20260926.htm" },
+      { "form": "8-K", "filed": "2026-11-02", "accepted_at": "2026-11-02T21:30:23.000Z", "period": "2026-11-02", "items": "2.02,9.01", "description": "8-K", "accession": "0000320193-26-000024", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000024/aapl-20261102.htm" }
+    ]
+  },
+  "insiders": {
+    "company": "Apple Inc.",
+    "filings_read": 2,
+    "transactions": [
+      { "insider": "Newstead Jennifer", "role": "SVP, GC and Government Affairs", "security": "Common Stock", "derivative": false, "date": "2026-11-10", "code": "S", "acquired_disposed": "D", "shares": 2399, "price": 351.36, "shares_after": 27598, "ownership": "D", "plan_10b5_1": true, "accepted_at": "2026-11-12T23:58:20.000Z", "filed": "2026-11-12", "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126043484/xslF345X06/form4.xml" },
+      { "insider": "Newstead Jennifer", "role": "SVP, GC and Government Affairs", "security": "Common Stock", "derivative": false, "date": "2026-11-03", "code": "S", "acquired_disposed": "D", "shares": 2399, "price": 325.75, "shares_after": 29997, "ownership": "D", "plan_10b5_1": true, "accepted_at": "2026-11-05T23:30:13.000Z", "filed": "2026-11-05", "url": "https://www.sec.gov/Archives/edgar/data/320193/000114036126042149/xslF345X06/form4.xml" }
+    ],
+    "codes": { "P": "open-market purchase", "S": "open-market sale" }
+  }
+}

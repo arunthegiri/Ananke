@@ -23,6 +23,9 @@ const ROUTES = [
   "/metrics",
   "/models",
   "/copilot",
+  "/research",
+  "/research?symbol=AAPL&tab=insiders",
+  "/settings?section=connectors",
 ];
 
 for (const route of ROUTES) {

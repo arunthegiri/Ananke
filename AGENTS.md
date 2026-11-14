@@ -129,6 +129,7 @@ src/
     __root.tsx      ← layout shell: QueryClientProvider + AppSidebarWithHealth (§6.4: health-probe failures dot the owning nav icons) + <Outlet> + global ⌘K handler & CommandPalette; root loader reads ui.theme server-side and the shell stamps data-theme/data-convention/data-cb (+ inline no-flash script)
     index.tsx       → /            Charts page (live)
     data.tsx        → /data        Raw data explorer with virtualised table (live)
+    research.tsx    → /research    Company research from data connectors (#10): SEC filings / insider trades / financials / full-text search; `?symbol=&tab=&concept=&q=` is URL state; pending state until SEC EDGAR is linked
     backtesting.tsx → /backtesting Backtesting replay + strategy runner (live; §9 W7: replay speed is a SegmentedControl, starting capital a UnitInput + QuickFillRow presets — both write straight to URL search params; §12 M3: `cursor` + `view` replay params — cursor writes in the rAF flush, view debounced 300ms, both replace-only; view restores via BacktestingChart's initialRange prop, never through visibleRange state)
     live.tsx        → /live        Live portfolio + positions + §15.3 economic calendar (blackout windows next to the book that they constrain)
     metrics.tsx     → /metrics     §15 analysis workspace — PanelTabs over Strategies (B1) / Universe (B2) / Correlation (B4) / Distributions (B9) / Latency (B7); `?tab=` and `?strategy=` are URL state (replace-only)
@@ -318,6 +319,52 @@ vendor's native Skills feature. Load-bearing rules:
 - **API and UI:** `GET /api/skills/packs`, `PUT /api/skills/packs/{id} {enabled}` (persisted to `ananke.skills.settings-file`), and `GET /api/skills/agents`. The UI lives in Settings → Agent skills (`?section=skills`).
 - **Tests (offline):** `SkillRegistryTest`, `SkillToolsetTest`, `CloudActionGatingTest`, and `AgentSkillsOfflineTest`, where a scripted `LLMClient` calls `load_skill` on the real bundle and answers from it, through both agents.
 
+### Data connectors (Dev-notes/Ananke Connectors Roadmap.md — issue #10)
+
+External data sources (SEC, macro, news, social, alt-data, World Monitor…) live in
+`com.stocktracker.connectors`. Load-bearing rules:
+- **One class per source.** A connector is a `@Component implements Connector`: a static
+  `ConnectorSpec` (id, category, licence, attribution, the fields the user enters, rate limits) and a
+  list of read-only `ConnectorTool`s whose names start with `<id>_`. `ConnectorService` refuses
+  duplicate ids, duplicate tool names and unprefixed names at startup.
+- **One path for every call.** Panels (`POST /api/connectors/{id}/tools/{tool}`) and agents both go
+  through `ConnectorService.call`: enabled? linked? → response cache (per tool TTL) → handler →
+  health recorded on `connector_accounts` (V13). Never call a connector's handler directly.
+- **Rate limits count upstream requests, not tool calls.** `ConnectorContext.get/getJson` takes a
+  permit per HTTP request (short waits sleep, anything over 2s fails fast as `RATE_LIMITED`).
+  A connector with its own transport (MCP) must call `ctx.acquirePermit()` per request. Counts are
+  in memory and reset on restart.
+- **Fields are the user's own.** Everything entered goes to `SecretVault` (scope `connector:<id>`).
+  Secret fields are write-only (last-four hint); non-secret ones (the SEC identity) are echoed back.
+  `PUT /credentials` tests live first: rejected keys (`AUTH`/`BAD_REQUEST`) are not saved; an
+  upstream outage still saves, with the failed test recorded. Blank values keep the stored one.
+- **Licence is data.** `FREE_PUBLIC | BYO_PERSONAL | BYO_COMMERCIAL | AGPL_SIDECAR`, shown in the
+  UI. Ananke never pools keys or redistributes. AGPL projects (World Monitor, Crucix, ShadowBroker)
+  are called over their API or run as sidecars — never vendored.
+- **Agents.** `ConnectorToolGate` offers the tools of connectors that are linked **and** on, only to
+  profiles with `dataConnectors` (today: `AgentProfile.COPILOT`, chat mode). Results are wrapped with
+  `source`, `observed_at`, attribution and an untrusted-data notice, truncated at 60k chars; errors
+  come back as `{error, kind}` results, not exceptions. `systemPrompt` lists connected sources.
+  Copilot **research** mode is unchanged (its four data tools only).
+- **Point-in-time.** Results carry `observedAt`; sources carry their own availability time too
+  (SEC acceptance time, XBRL `filed`). Backtests must use those, never the period end.
+- **`apiFetch` gotcha:** a result's data field is `payload`, not `data` — `apiFetch` unwraps any
+  `{data}` body and would drop the source and timestamp.
+- **MCP:** `connectors/mcp/McpHttpClient` is the shared streamable-HTTP MCP transport (JSON or SSE,
+  session header, one re-initialise on 404). Auth is per request (`Auth`), so SigV4 still signs the
+  body; `AwsMcpKnowledge` uses it. Hosted-MCP connectors (World Monitor next) build on it.
+- **SEC EDGAR (`sec_edgar`):** `_company`, `_filings`, `_financials`, `_insider_trades`, `_search`.
+  Only field: the identity ("Name email") the SEC requires as User-Agent. 8 req/s. Financials show
+  each period as first reported, with later different numbers under `restated` (10-K comparatives
+  no longer duplicate years). Form 4 is parsed from the raw XML (stylesheet prefix stripped,
+  DOCTYPE/entities off).
+- **UI:** Settings → Data connectors (`?section=connectors`, `ConnectorsSettings.tsx`) and
+  `/research?symbol=&tab=filings|insiders|financials|search&concept=&q=` (SEC tables are presets in
+  `presets/sec.ts`; the `link` cell type was added for document links).
+- **Tests:** `ConnectorServiceTest` (linking, cache, limits, gating, truncation), `SecEdgarConnectorTest`
+  (fake EDGAR over a local HttpServer), `SecEdgarLiveCheck` (opt-in `SEC_LIVE=1`, real EDGAR),
+  `tests/visual/research.spec.ts` (fixtures in `fixtures/connectors-sec.json`; `stubLinkedSec`).
+
 ### Agent runtime (Dev-notes/Ananke Agent Integration.md — issue #9)
 
 The Agent Integration spec turns Copilot into a durable multi-agent research runtime, delivered in
@@ -340,8 +387,8 @@ Architecture decisions (M0):
   authorization.
 - **Flyway allocation.**
   - V7 = packs, V8 = agent-skills, V9 = cloud-compute, V10 = this work,
-    V11 = multi-asset instruments, V12 = multi-asset bars. (multi-asset's V9/V10 were renumbered
-    to V11/V12 when everything merged to `main`.)
+    V11 = multi-asset instruments, V12 = multi-asset bars, V13 = data connectors (#10).
+    (multi-asset's V9/V10 were renumbered to V11/V12 when everything merged to `main`.)
   - Claim the next free number in this table when you add a migration.
 
 Load-bearing rules (W1):

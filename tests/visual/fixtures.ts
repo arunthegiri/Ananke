@@ -30,6 +30,12 @@ const activeStrategiesFixture = readFixture<ActiveStrategy[]>("strategies-active
 const strategyDetailFixture = readFixture<Record<string, StrategyDetail>>("strategy-details.json");
 const latencyFixture = readFixture<LatencySample[]>("latency-samples.json");
 const modelsFixture = readFixture<ModelSummary[]>("models.json");
+// Shapes recorded from the real SEC EDGAR connector (AAPL, 2026-11-14).
+const secFixture = readFixture<{
+  connector: Record<string, unknown>;
+  filings: unknown;
+  insiders: unknown;
+}>("connectors-sec.json");
 
 const CORS_HEADERS = { "Access-Control-Allow-Origin": "*" };
 
@@ -149,7 +155,77 @@ export async function stubApi(page: Page): Promise<{ unmatched: string[] }> {
     route.fulfill(json({ data: positionsFixture, count: positionsFixture.length })),
   );
 
+  // ── LLM settings (Copilot reads which provider is active) ──────────────────
+  // No provider configured: Copilot renders its "set up a provider" state.
+  await page.route(/\/api\/settings\/llm(\?|$)/, (route) =>
+    route.fulfill(
+      json({
+        activeProvider: null,
+        effectiveSource: "env",
+        configured: false,
+        effectiveModel: null,
+        envModel: null,
+        envConfigured: false,
+        providers: [],
+        activeProviderLabel: null,
+      }),
+    ),
+  );
+
+  // ── Data connectors (issue #10) ─────────────────────────────────────────────
+  // Default: SEC EDGAR present but not linked. stubLinkedSec() flips it to READY.
+  await page.route(/\/api\/connectors(\?|$)/, (route) =>
+    route.fulfill(json([secFixture.connector])),
+  );
+
   return { unmatched };
+}
+
+/**
+ * SEC EDGAR linked and READY, with its filings / insider-trade tools answering from the
+ * recorded fixture. Call BEFORE page.goto(). Returns the tool calls seen, in order.
+ */
+export async function stubLinkedSec(
+  page: Page,
+): Promise<{ calls: { tool: string; args: unknown }[] }> {
+  const calls: { tool: string; args: unknown }[] = [];
+  const linked = {
+    ...secFixture.connector,
+    linked: true,
+    status: "READY",
+    fields: (secFixture.connector.fields as Record<string, unknown>[]).map((f) => ({
+      ...f,
+      set: true,
+      hint: "Test Runner test@example.com",
+    })),
+    lastTestOk: true,
+    lastTestMessage: "Connected — EDGAR answered (10404 tickers; e.g. AAPL = CIK 0000320193).",
+  };
+  await page.route(/\/api\/connectors(\?|$)/, (route) => route.fulfill(json([linked])));
+  await page.route(/\/api\/connectors\/sec_edgar\/tools\/([a-z_]+)/, (route) => {
+    const tool = /tools\/([a-z_]+)/.exec(route.request().url())![1];
+    calls.push({ tool, args: route.request().postDataJSON() });
+    const payload =
+      tool === "sec_edgar_filings"
+        ? secFixture.filings
+        : tool === "sec_edgar_insider_trades"
+          ? secFixture.insiders
+          : null;
+    if (!payload)
+      return route.fulfill(json({ message: `no fixture for ${tool}`, status: 400 }, 400));
+    return route.fulfill(
+      json({
+        connector: "sec_edgar",
+        source: "SEC EDGAR",
+        tool,
+        attribution: "Source: U.S. Securities and Exchange Commission, EDGAR",
+        observedAt: "2026-11-14T20:00:00Z",
+        cached: false,
+        payload,
+      }),
+    );
+  });
+  return { calls };
 }
 
 /**

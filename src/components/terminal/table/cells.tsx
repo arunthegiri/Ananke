@@ -25,6 +25,8 @@ export type Tone = "up" | "down" | "flat" | "neutral" | "warn" | "info";
  */
 export type CellRender =
   | { type: "text"; value: string; mono?: boolean; strong?: boolean }
+  /** External link (filing documents, sources). Opens in a new tab; `href` must be http(s). */
+  | { type: "link"; value: string; href: string; mono?: boolean }
   | { type: "num"; value: number | null; kind: NumKind; prefix?: string }
   /** value is already in percent units (12.34 → +12.34%). */
   | { type: "pct"; value: number | null; plus?: boolean; reference?: number }
@@ -239,6 +241,20 @@ export function renderCell(
         </span>
       );
 
+    case "link":
+      return (
+        <a
+          key={key}
+          href={/^https?:\/\//.test(cell.href) ? cell.href : undefined}
+          target="_blank"
+          rel="noreferrer noopener"
+          className={cn(layout, cell.mono && "font-mono", "text-accent-blue hover:underline")}
+          style={style}
+        >
+          {cell.value}
+        </a>
+      );
+
     case "num":
       return (
         <span key={key} className={cn(layout, "tabular font-mono text-text-primary")} style={style}>
@@ -392,6 +408,11 @@ export function cellsEqual(a: readonly CellRender[], b: readonly CellRender[]): 
       case "text": {
         const z = y as Extract<CellRender, { type: "text" }>;
         if (x.value !== z.value || x.mono !== z.mono || x.strong !== z.strong) return false;
+        break;
+      }
+      case "link": {
+        const z = y as Extract<CellRender, { type: "link" }>;
+        if (x.value !== z.value || x.href !== z.href || x.mono !== z.mono) return false;
         break;
       }
       case "num": {

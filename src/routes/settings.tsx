@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { BookOpenCheck, KeyRound, Palette } from "lucide-react";
+import { BookOpenCheck, KeyRound, Palette, Plug } from "lucide-react";
 
 import { TerminalPanel } from "@/components/terminal/TerminalPanel";
 import { AiProviderPanel } from "@/components/settings/AiProviderSettings";
 import { AgentSkillsPanel } from "@/components/settings/AgentSkillsSettings";
+import { ConnectorsPanel } from "@/components/settings/ConnectorsSettings";
 import { AppearanceControls } from "@/components/ThemeSettings";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,13 @@ const SECTIONS = [
     icon: KeyRound,
     blurb:
       "Bring your own LLM. Paste a key from Anthropic, OpenAI, Groq, OpenRouter, DeepSeek, Moonshot or any OpenAI-compatible server (Ollama, LM Studio, vLLM), pick a model, and make it Copilot's provider. Keys are stored on your Ananke backend and never shown again.",
+  },
+  {
+    id: "connectors",
+    label: "Data connectors",
+    icon: Plug,
+    blurb:
+      "External data for research and Copilot: SEC filings and insider trades first, with macro, news, social, alt-data and geopolitics to follow. Ananke uses your own keys and acts as your client; it never pools or resells data. Keys are tested before they are saved and never shown again.",
   },
   {
     id: "skills",
@@ -86,6 +94,8 @@ function SettingsPage() {
           </p>
           {section === "ai" ? (
             <AiProviderPanel bodyClassName="min-h-0 flex-1" />
+          ) : section === "connectors" ? (
+            <ConnectorsPanel bodyClassName="min-h-0 flex-1" />
           ) : section === "skills" ? (
             <AgentSkillsPanel bodyClassName="min-h-0 flex-1" />
           ) : (

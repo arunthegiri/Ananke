@@ -74,7 +74,7 @@ src/
   components/terminal/ ← the design system: TerminalPanel, tabs, PanelState, controls/, table/
   components/copilot/  ← copilot surfaces: CodeBlock, BacktestCard, CopilotMarkdown
   components/metrics/  ← §15 analysis panels (strategy table, universe ranking, correlation, …)
-  routes/           ← /, /data, /options, /backtesting, /live, /metrics, /models, /copilot, /packs, /settings (+ dev/controls, DEV-only)
+  routes/           ← /, /data, /options, /research, /backtesting, /live, /metrics, /models, /copilot, /packs, /settings (+ dev/controls, DEV-only)
 executor/           ← stdlib Python code executor mounted into the Jupyter container (copilot M0)
   routeTree.gen.ts  ← AUTO-GENERATED — never edit
 ```
@@ -162,6 +162,17 @@ script from a skill ever runs, cloud action tools appear only for linked clouds 
 billable actions need a person's confirmation plus an audit entry. New agents compose
 `AgentCapabilities`; they don't write their own tool loop. Details are in AGENTS.md.
 
+### Data connectors (issue #10)
+
+External sources live in `com.stocktracker.connectors`: one `@Component Connector` per source, with a
+static spec (licence, attribution, fields, rate limits) and read-only tools named `<id>_*`. Every call,
+from a panel or an agent, goes through `ConnectorService.call` (enabled → linked → cache → handler →
+health). Rate limits count upstream HTTP requests, via `ConnectorContext`. The user's fields are in
+`SecretVault`, are tested live before saving, and secrets are never returned. Linked connectors become
+Copilot chat tools, with results wrapped as untrusted data. Connector results use `payload`, not `data`,
+because `apiFetch` unwraps `{data}`. SEC EDGAR is the first connector (`/research`, Settings → Data
+connectors). Details are in AGENTS.md; the plan is `Dev-notes/Ananke Connectors Roadmap.md`.
+
 ### Timezones
 
 Eastern, everywhere, derived from `Intl` — never a hardcoded −4/−5. Session state, the economic
@@ -199,7 +210,7 @@ The Agent Integration spec (`Dev-notes/Ananke Agent Integration.md`) is being bu
 `com.stocktracker.agent.model`. Models resolve per role into immutable snapshots, and nothing in
 that path reads or changes the legacy global provider. Never wrap the `@Primary` legacy
 `LLMClient`. AGENTS.md "Agent runtime" has the rules and the Flyway allocation (V9 cloud-compute, V10 this
-work, V11/V12 multi-asset).
+work, V11/V12 multi-asset, V13 data connectors).
 
 ### Environment variables
 
