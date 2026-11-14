@@ -56,9 +56,17 @@ public class AwsAccounts {
     private final AwsGateway aws;
     private final Clock clock;
     private final Map<Long, Creds> sessionCache = new ConcurrentHashMap<>();
+    private final String dlamiParameter;
 
     public AwsAccounts(CloudAccountRepository accounts, ComputeTargetRepository targets, SecretVault vault,
                        AwsGateway aws, Clock clock) {
+        this(accounts, targets, vault, aws, clock, DLAMI_PARAMETER);
+    }
+
+    /** {@code dlamiParameter} is overridable for emulators, which can't hold names under /aws/. */
+    public AwsAccounts(CloudAccountRepository accounts, ComputeTargetRepository targets, SecretVault vault,
+                       AwsGateway aws, Clock clock, String dlamiParameter) {
+        this.dlamiParameter = dlamiParameter == null || dlamiParameter.isBlank() ? DLAMI_PARAMETER : dlamiParameter;
         this.accounts = accounts;
         this.targets  = targets;
         this.vault    = vault;
@@ -135,7 +143,7 @@ public class AwsAccounts {
             if (!m.group(2).equals(id.accountId())) {
                 throw new PackException(CLOUD_AUTH, "The role belongs to account " + m.group(2) + " but the session is in " + id.accountId() + ".");
             }
-            String ami = aws.ssmParameter(role, a.getHomeRegion(), DLAMI_PARAMETER);
+            String ami = aws.ssmParameter(role, a.getHomeRegion(), dlamiParameter);
             boolean allowed = aws.dryRunLaunch(role, a.getHomeRegion(), new AwsGateway.RunSpec(ami, "g6.xlarge", null, 150, null,
                     Map.of("ananke-managed", "true", "ananke-link", a.getLinkTag())));
             if (!allowed) {
@@ -199,6 +207,10 @@ public class AwsAccounts {
 
     public List<CloudAccount> list() {
         return accounts.findAllByOrderByCreatedAtAsc().stream().filter(x -> CLOUD.equals(x.getCloud())).toList();
+    }
+
+    public String dlamiParameter() {
+        return dlamiParameter;
     }
 
     public String keyHint(CloudAccount a) {

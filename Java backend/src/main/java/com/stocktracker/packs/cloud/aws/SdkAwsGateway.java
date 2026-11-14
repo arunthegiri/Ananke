@@ -43,11 +43,18 @@ public class SdkAwsGateway implements AwsGateway {
     static final String PRICING_REGION = "us-east-1";
 
     private final URI endpoint;
+    private final URI pricingEndpoint;
     private final SdkHttpClient http;
     private final ObjectMapper mapper = new ObjectMapper();
 
     public SdkAwsGateway(URI endpoint) {
+        this(endpoint, endpoint);
+    }
+
+    /** {@code pricingEndpoint} separately, because emulators such as moto don't implement the Price List API. */
+    public SdkAwsGateway(URI endpoint, URI pricingEndpoint) {
         this.endpoint = endpoint;
+        this.pricingEndpoint = pricingEndpoint;
         this.http = UrlConnectionHttpClient.builder()
                 .connectionTimeout(Duration.ofSeconds(10))
                 .socketTimeout(Duration.ofSeconds(30))
@@ -55,11 +62,15 @@ public class SdkAwsGateway implements AwsGateway {
     }
 
     private <B extends AwsClientBuilder<B, C>, C> C client(B builder, Creds creds, String region) {
+        return client(builder, creds, region, endpoint);
+    }
+
+    private <B extends AwsClientBuilder<B, C>, C> C client(B builder, Creds creds, String region, URI override) {
         AwsCredentials c = creds.sessionToken() == null
                 ? AwsBasicCredentials.create(creds.accessKeyId(), creds.secretAccessKey())
                 : AwsSessionCredentials.create(creds.accessKeyId(), creds.secretAccessKey(), creds.sessionToken());
         builder.region(Region.of(region)).credentialsProvider(StaticCredentialsProvider.create(c));
-        if (endpoint != null) builder.endpointOverride(endpoint);
+        if (override != null) builder.endpointOverride(override);
         return builder.build();
     }
 
@@ -75,8 +86,18 @@ public class SdkAwsGateway implements AwsGateway {
             String msg = e.awsErrorDetails() == null ? e.getMessage() : e.awsErrorDetails().errorMessage();
             throw new AwsException(code, what + " failed: " + (code == null ? "" : code + ": ") + msg, e);
         } catch (SdkException e) {
-            throw new AwsException(null, what + " failed: " + e.getMessage(), e);
+            throw new AwsException(null, what + " failed: " + describe(e), e);
         }
+    }
+
+    /** SDK client errors often carry a null message; fall back to the deepest cause that says something. */
+    static String describe(Throwable e) {
+        String best = null;
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t.getMessage() != null && !t.getMessage().isBlank()) best = t.getMessage();
+            for (Throwable s : t.getSuppressed()) if (best == null && s.getMessage() != null) best = s.getMessage();
+        }
+        return best == null ? e.getClass().getSimpleName() : best;
     }
 
     // ── STS / SSM ─────────────────────────────────────────────────────────────
@@ -297,7 +318,7 @@ public class SdkAwsGateway implements AwsGateway {
 
     private Optional<Double> price(Creds creds, Map<String, String> filters, String unit) {
         return call("pricing:GetProducts", () -> {
-            try (PricingClient pricing = client(PricingClient.builder().httpClient(http), creds, PRICING_REGION)) {
+            try (PricingClient pricing = client(PricingClient.builder().httpClient(http), creds, PRICING_REGION, pricingEndpoint)) {
                 var req = GetProductsRequest.builder().serviceCode("AmazonEC2").maxResults(20)
                         .filters(filters.entrySet().stream().map(e -> software.amazon.awssdk.services.pricing.model.Filter.builder()
                                 .type(FilterType.TERM_MATCH).field(e.getKey()).value(e.getValue()).build()).toList())

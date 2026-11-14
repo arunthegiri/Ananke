@@ -32,15 +32,18 @@ public class CloudConfig {
     private static final AtomicInteger SEQ = new AtomicInteger();
 
     @Bean
-    public AwsGateway awsGateway(@Value("${ananke.cloud.aws.endpoint:}") String endpoint) {
+    public AwsGateway awsGateway(@Value("${ananke.cloud.aws.endpoint:}") String endpoint,
+                                 @Value("${ananke.cloud.aws.pricing-endpoint:}") String pricingEndpoint) {
         if (!endpoint.isBlank()) log.warn("AWS calls go to {} (emulator override), not AWS", endpoint);
-        return new SdkAwsGateway(endpoint.isBlank() ? null : URI.create(endpoint));
+        if (!pricingEndpoint.isBlank()) log.warn("AWS price lookups go to {} (override), not AWS", pricingEndpoint);
+        URI main = endpoint.isBlank() ? null : URI.create(endpoint);
+        return new SdkAwsGateway(main, pricingEndpoint.isBlank() ? main : URI.create(pricingEndpoint));
     }
 
     @Bean
     public AwsAccounts awsAccounts(CloudAccountRepository accounts, ComputeTargetRepository targets, SecretVault vault,
-                                   AwsGateway aws) {
-        return new AwsAccounts(accounts, targets, vault, aws, Clock.systemUTC());
+                                   AwsGateway aws, @Value("${ananke.cloud.aws.dlami-parameter:}") String dlamiParameter) {
+        return new AwsAccounts(accounts, targets, vault, aws, Clock.systemUTC(), dlamiParameter);
     }
 
     @Bean(destroyMethod = "shutdown")
@@ -56,9 +59,14 @@ public class CloudConfig {
     public AwsMachines awsMachines(AwsAccounts accounts, AwsGateway aws, ComputeTargetRepository targets, PackRepository packs,
                                    ObjectProvider<PackService> packService, SecretVault vault, CommandRunner runner,
                                    @Value("${ananke.packs.ssh-keygen-binary:ssh-keygen}") String keygenBin,
-                                   AgentAuditRepository audit, ExecutorService cloudExecutor) {
+                                   AgentAuditRepository audit, ExecutorService cloudExecutor,
+                                   @Value("${ananke.cloud.aws.poll-seconds:10}") long pollSeconds,
+                                   @Value("${ananke.cloud.aws.boot-timeout-minutes:10}") long bootMinutes,
+                                   @Value("${ananke.cloud.aws.host-key-timeout-minutes:10}") long hostKeyMinutes) {
+        var timing = new AwsMachines.Timing(java.time.Duration.ofSeconds(pollSeconds), java.time.Duration.ofMinutes(bootMinutes),
+                java.time.Duration.ofMinutes(hostKeyMinutes), java.time.Duration.ofMinutes(10));
         return new AwsMachines(accounts, aws, targets, packs, packService, vault, new SshKeygen(runner, keygenBin), audit,
-                cloudExecutor, d -> Thread.sleep(d.toMillis()), Clock.systemUTC(), AwsMachines.Timing.defaults());
+                cloudExecutor, d -> Thread.sleep(d.toMillis()), Clock.systemUTC(), timing);
     }
 
     /** §7.4 idle auto-stop. Every 5 minutes by default. */

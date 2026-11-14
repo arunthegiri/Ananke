@@ -172,6 +172,17 @@ public class CloudController {
                 machines.machines(a.getId()).size());
     }
 
+    /** An AWS API error the services didn't translate: AWS's reason, as a gateway error (never a bare 500). */
+    @ExceptionHandler(com.stocktracker.packs.cloud.aws.AwsGateway.AwsException.class)
+    public ResponseEntity<Map<String, Object>> awsError(com.stocktracker.packs.cloud.aws.AwsGateway.AwsException e) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", e.getMessage());
+        body.put("code", "CLOUD_FAILED");
+        body.put("awsCode", e.code());
+        body.put("status", 502);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
     @ExceptionHandler(PackException.class)
     public ResponseEntity<Map<String, Object>> packError(PackException e) {
         Map<String, Object> body = new LinkedHashMap<>();

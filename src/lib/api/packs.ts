@@ -89,7 +89,17 @@ export interface ComputeTarget {
   port: number;
   username: string;
   hostKeyFingerprint: string | null;
-  status: "UNVERIFIED" | "HOSTKEY_CONFIRMED" | "READY" | "NO_GPU" | "ERROR";
+  status:
+    | "UNVERIFIED"
+    | "HOSTKEY_CONFIRMED"
+    | "READY"
+    | "NO_GPU"
+    | "ERROR"
+    // §7 cloud machines
+    | "PROVISIONING"
+    | "STARTING"
+    | "STOPPED"
+    | "TERMINATING";
   lastProbe:
     | {
         os?: string;
@@ -103,6 +113,27 @@ export interface ComputeTarget {
     | null;
   lastProbeAt: string | null;
   keyHint: string | null;
+  /** §7 cloud-provisioned machines only (null for "ssh"). */
+  cloudAccountId: number | null;
+  cloudRegion: string | null;
+  cloudInstanceId: string | null;
+  cloudMeta: {
+    instanceType?: string;
+    diskGiB?: number;
+    sshCidr?: string;
+    amiId?: string;
+    phase?: string;
+    state?: string;
+    error?: string;
+    estimate?: {
+      hourlyUsd: number;
+      diskMonthlyUsd: number;
+      alwaysOnMonthlyUsd: number;
+      source: string;
+    };
+  } | null;
+  idleStopMinutes: number | null;
+  ownerPackId: number | null;
 }
 
 export interface ComputeProviderInfo {
@@ -188,4 +219,17 @@ export const FAILURE_HELP: Record<string, string> = {
   HEALTH_TIMEOUT:
     "vLLM never became healthy. Large models can take a while — check the logs and redeploy.",
   TUNNEL_FAILED: "The SSH tunnel to the model server could not be opened.",
+  CLOUD_NOT_LINKED: "Link the cloud account first (Machines → Cloud).",
+  CLOUD_AUTH:
+    "The cloud rejected the credentials. Re-check the access key and the RoleArn / ExternalId from the stack.",
+  CLOUD_PERMISSION:
+    "The linked role lacks a permission Ananke needs. Re-create the stack from ananke-access.yaml unmodified.",
+  CLOUD_FAILED: "The cloud API call failed; the message has AWS's reason.",
+  ESTIMATE_REQUIRED: "Get a fresh cost estimate and confirm it before creating a machine.",
+  PRICE_UNAVAILABLE:
+    "No price is listed for that type and region, so Ananke won't create it. Try another region or instance type.",
+  PROVISION_FAILED:
+    "The VM didn't come up (capacity, quota or networking). Anything created was terminated; see the machine's error.",
+  HOSTKEY_TIMEOUT:
+    "The VM's SSH host key never appeared in its console output, so it couldn't be pinned safely. It was terminated.",
 };

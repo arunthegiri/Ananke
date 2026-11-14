@@ -5,6 +5,7 @@ import {
   Activity,
   Check,
   CircleAlert,
+  Cloud,
   Cpu,
   Loader2,
   Package,
@@ -42,6 +43,8 @@ import {
   type Pack,
 } from "@/lib/api/packs";
 import { LLM_SETTINGS_KEY } from "@/hooks/useLlmSettings";
+import { AwsCloudDialog } from "@/components/packs/AwsCloudDialog";
+import { cloudApi, TRANSITIONAL, usd } from "@/lib/api/cloud";
 import { cn } from "@/lib/utils";
 
 /**
@@ -76,9 +79,17 @@ function PacksPage() {
   const { p: selectedId } = Route.useSearch();
   const navigate = useNavigate({ from: "/packs" });
   const packs = useQuery({ queryKey: PACKS_KEY, queryFn: packsApi.list, retry: false });
-  const targets = useQuery({ queryKey: TARGETS_KEY, queryFn: packsApi.targets, retry: false });
+  const targets = useQuery({
+    queryKey: TARGETS_KEY,
+    queryFn: packsApi.targets,
+    retry: false,
+    // Cloud machines boot / stop / terminate server-side: poll only while one is changing.
+    refetchInterval: (q) => (q.state.data?.some((t) => TRANSITIONAL.has(t.status)) ? 5000 : false),
+  });
+  const qc = useQueryClient();
   const [newPackOpen, setNewPackOpen] = useState(false);
   const [addMachineOpen, setAddMachineOpen] = useState(false);
+  const [cloudOpen, setCloudOpen] = useState(false);
 
   const select = (id?: number) => navigate({ search: id ? { p: id } : {} });
   const current = packs.data?.find((p) => p.id === selectedId) ?? packs.data?.[0];
@@ -151,14 +162,24 @@ function PacksPage() {
           className="max-h-[45%] min-h-[180px]"
           bodyClassName="min-h-0 overflow-y-auto"
           actions={
-            <button
-              type="button"
-              onClick={() => setAddMachineOpen(true)}
-              className="flex items-center gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
-              data-testid="add-machine"
-            >
-              <Plus className="h-3.5 w-3.5" /> Add
-            </button>
+            <span className="flex">
+              <button
+                type="button"
+                onClick={() => setCloudOpen(true)}
+                className="flex items-center gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
+                data-testid="cloud-machines"
+              >
+                <Cloud className="h-3.5 w-3.5" /> Cloud
+              </button>
+              <button
+                type="button"
+                onClick={() => setAddMachineOpen(true)}
+                className="flex items-center gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
+                data-testid="add-machine"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add
+              </button>
+            </span>
           }
         >
           <MachineList targets={targets.data} loading={targets.isLoading} error={targets.error} />
@@ -193,6 +214,12 @@ function PacksPage() {
         onCreated={(p) => select(p.id)}
       />
       <AddMachineDialog open={addMachineOpen} onOpenChange={setAddMachineOpen} />
+      <AwsCloudDialog
+        open={cloudOpen}
+        onOpenChange={setCloudOpen}
+        packs={packs.data ?? []}
+        onMachinesChanged={() => void qc.invalidateQueries({ queryKey: TARGETS_KEY })}
+      />
     </div>
   );
 }
@@ -231,6 +258,12 @@ function MachineList({
     onSettled: () => qc.invalidateQueries({ queryKey: TARGETS_KEY }),
     onError: (e) => toast.error(errText(e)),
   });
+  const cloud = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: "start" | "stop" | "terminate" }) =>
+      cloudApi[action](id),
+    onSettled: () => qc.invalidateQueries({ queryKey: TARGETS_KEY }),
+    onError: (e) => toast.error(errText(e)),
+  });
 
   if (error)
     return (
@@ -247,7 +280,7 @@ function MachineList({
       <PanelState
         kind="empty"
         art="plug"
-        message="Add a Linux machine with an NVIDIA GPU that you can SSH into. AWS / GCP provisioning is not available yet."
+        message="Add a Linux machine with an NVIDIA GPU that you can SSH into, or create one in your AWS account (Cloud)."
       />
     );
   }
@@ -270,30 +303,100 @@ function MachineList({
                       : "text-warning",
                 )}
               >
-                {t.status === "HOSTKEY_CONFIRMED" ? "NOT PROBED" : t.status.replace("_", " ")}
+                {t.status === "HOSTKEY_CONFIRMED" ? "NOT PROBED" : t.status.replaceAll("_", " ")}
               </span>
             </span>
             <span className="truncate pl-5 font-mono text-[10px] text-text-muted">
-              {t.username}@{t.host}:{t.port}
+              {t.provider === "aws"
+                ? `${t.cloudMeta?.instanceType ?? ""} · ${t.cloudRegion} · ${t.cloudInstanceId ?? "launching"}`
+                : `${t.username}@${t.host}:${t.port}`}
             </span>
+            {t.provider === "aws" && (
+              <span className="truncate pl-5 text-[10px] text-text-muted">
+                {TRANSITIONAL.has(t.status) && t.cloudMeta?.phase
+                  ? t.cloudMeta.phase.replaceAll("_", " ").toLowerCase() + "…"
+                  : t.cloudMeta?.estimate
+                    ? `${usd(t.cloudMeta.estimate.hourlyUsd, 4)}/h while running · disk ${usd(t.cloudMeta.estimate.diskMonthlyUsd)}/mo` +
+                      (t.idleStopMinutes ? ` · auto-stop ${t.idleStopMinutes} min` : "")
+                    : null}
+              </span>
+            )}
+            {t.provider === "aws" && t.status === "ERROR" && t.cloudMeta?.error && (
+              <span className="pl-5 text-[10px] text-bear">{t.cloudMeta.error}</span>
+            )}
             {gpus.length > 0 && (
               <span className="truncate pl-5 text-[10px] text-text-muted">
                 {gpus.map((g) => `${g.name} · ${Math.round(g.memoryMiB / 1024)} GiB`).join(", ")}
               </span>
             )}
             <span className="flex gap-3 pl-5 text-[10px] text-text-muted">
-              {t.status !== "UNVERIFIED" && (
-                <button
-                  type="button"
-                  className="hover:text-text-primary"
-                  onClick={() => probe.mutate(t.id)}
-                >
-                  {probe.isPending && probe.variables === t.id ? "Checking…" : "Check machine"}
-                </button>
+              {t.provider === "aws" ? (
+                <>
+                  {["HOSTKEY_CONFIRMED", "READY", "NO_GPU"].includes(t.status) && (
+                    <button
+                      type="button"
+                      className="hover:text-text-primary"
+                      onClick={() => probe.mutate(t.id)}
+                    >
+                      {probe.isPending && probe.variables === t.id ? "Checking…" : "Check machine"}
+                    </button>
+                  )}
+                  {t.cloudMeta?.state === "running" && t.status !== "TERMINATING" && (
+                    <button
+                      type="button"
+                      className="hover:text-text-primary"
+                      onClick={() => cloud.mutate({ id: t.id, action: "stop" })}
+                    >
+                      Stop
+                    </button>
+                  )}
+                  {t.status === "STOPPED" && (
+                    <button
+                      type="button"
+                      className="hover:text-text-primary"
+                      onClick={() => cloud.mutate({ id: t.id, action: "start" })}
+                    >
+                      Start (billable)
+                    </button>
+                  )}
+                  {!["TERMINATING", "PROVISIONING"].includes(t.status) && (
+                    <button
+                      type="button"
+                      className="hover:text-bear"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Terminate ${t.label}? The VM and its disk are deleted in AWS.`,
+                          )
+                        ) {
+                          cloud.mutate({ id: t.id, action: "terminate" });
+                        }
+                      }}
+                    >
+                      Terminate
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {t.status !== "UNVERIFIED" && (
+                    <button
+                      type="button"
+                      className="hover:text-text-primary"
+                      onClick={() => probe.mutate(t.id)}
+                    >
+                      {probe.isPending && probe.variables === t.id ? "Checking…" : "Check machine"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="hover:text-bear"
+                    onClick={() => remove.mutate(t.id)}
+                  >
+                    Remove
+                  </button>
+                </>
               )}
-              <button type="button" className="hover:text-bear" onClick={() => remove.mutate(t.id)}>
-                Remove
-              </button>
             </span>
           </li>
         );

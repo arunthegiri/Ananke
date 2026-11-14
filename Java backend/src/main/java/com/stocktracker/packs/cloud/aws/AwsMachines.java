@@ -242,7 +242,7 @@ public class AwsMachines implements PackRemovalHook {
         try {
             CloudAccount a = accounts.linked(accountId);
             Creds c = accounts.session(a);
-            String ami = req.amiId() != null ? req.amiId() : aws.ssmParameter(c, req.region(), AwsAccounts.DLAMI_PARAMETER);
+            String ami = req.amiId() != null ? req.amiId() : aws.ssmParameter(c, req.region(), accounts.dlamiParameter());
             meta(targetId, Map.of("amiId", ami, "phase", "CREATING_SECURITY_GROUP"));
 
             Map<String, String> tags = new LinkedHashMap<>();
@@ -275,10 +275,12 @@ public class AwsMachines implements PackRemovalHook {
                     : "Provisioning failed: " + ex.getMessage();
             log.warn("AWS provisioning of target {} failed: {}", targetId, msg);
             String cleanup = cleanupAfterFailure(accountId, req.region(), instanceId, sgId);
+            final String fInstance = instanceId;
             update(targetId, t -> {
                 t.setStatus("ERROR");
                 Map<String, Object> m = new LinkedHashMap<>(t.getCloudMeta());
                 m.put("phase", "FAILED");
+                m.put("state", fInstance == null ? "none" : cleanup.startsWith("Left behind") ? "unknown" : "terminated");
                 m.put("error", msg + (cleanup.isEmpty() ? "" : " " + cleanup));
                 t.setCloudMeta(m);
             });
@@ -309,7 +311,7 @@ public class AwsMachines implements PackRemovalHook {
             }
             if (!clock.instant().isBefore(deadline)) {
                 throw new PackException(PROVISION_FAILED, "The instance was not running with a public IP within "
-                        + timeout.toMinutes() + " minutes (does the default subnet assign public IPs?).");
+                        + minutes(timeout) + " (does the default subnet assign public IPs?).");
             }
             sleeper.sleep(timing.poll());
         }
@@ -322,8 +324,7 @@ public class AwsMachines implements PackRemovalHook {
             if (key.isPresent()) return key.get();
             if (!clock.instant().isBefore(deadline)) {
                 throw new PackException(HOSTKEY_TIMEOUT, "The VM's host key did not appear in its console output within "
-                        + timing.hostKeyTimeout().toMinutes() + " minutes, so Ananke cannot pin it without trusting the network. "
-                        + "The VM was terminated.");
+                        + minutes(timing.hostKeyTimeout()) + ", so Ananke cannot pin it without trusting the network.");
             }
             sleeper.sleep(timing.poll());
         }
@@ -464,7 +465,7 @@ public class AwsMachines implements PackRemovalHook {
             } catch (Exception e) {
                 update(targetId, x -> {
                     x.setStatus("ERROR");
-                    meta(x, Map.of("phase", "FAILED", "error", "Start failed: " + e.getMessage()));
+                    meta(x, Map.of("phase", "FAILED", "state", "unknown", "error", "Start failed: " + e.getMessage()));
                 });
             }
         });
@@ -666,6 +667,11 @@ public class AwsMachines implements PackRemovalHook {
 
     static String costLine(Estimate e) {
         return "$" + e.hourlyUsd() + "/h + disk ≈ $" + e.diskMonthlyUsd() + "/month (always-on ≈ $" + e.alwaysOnMonthlyUsd() + "/month)";
+    }
+
+    static String minutes(Duration d) {
+        long m = d.toMinutes();
+        return m == 1 ? "1 minute" : m + " minutes";
     }
 
     private static double round2(double d) {

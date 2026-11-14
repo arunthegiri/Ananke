@@ -133,6 +133,30 @@ class SdkAwsGatewayMotoTest {
     }
 
     @Test
+    void pricing_goesToItsOwnEndpoint_notTheMainOverride() throws Exception {
+        // Regression: the main endpoint override used to clobber the pricing override.
+        var server = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        java.util.concurrent.atomic.AtomicReference<String> seen = new java.util.concurrent.atomic.AtomicReference<>();
+        server.createContext("/", ex -> {
+            seen.set(new String(ex.getRequestBody().readAllBytes()));
+            byte[] b = ("{\"FormatVersion\":\"aws_v1\",\"PriceList\":[\"{\\\"terms\\\":{\\\"OnDemand\\\":{\\\"T\\\":{\\\"priceDimensions\\\":"
+                    + "{\\\"D\\\":{\\\"unit\\\":\\\"Hrs\\\",\\\"pricePerUnit\\\":{\\\"USD\\\":\\\"1.25\\\"}}}}}}}\"]}").getBytes();
+            ex.getResponseHeaders().add("Content-Type", "application/x-amz-json-1.1");
+            ex.sendResponseHeaders(200, b.length);
+            ex.getResponseBody().write(b);
+            ex.close();
+        });
+        server.start();
+        try {
+            SdkAwsGateway split = new SdkAwsGateway(endpoint, URI.create("http://127.0.0.1:" + server.getAddress().getPort()));
+            assertThat(split.onDemandHourlyUsd(BASE, REGION, "g6.xlarge")).contains(1.25);
+            assertThat(seen.get()).contains("\"instanceType\"").contains("g6.xlarge").contains("regionCode");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void pricingDocuments_areParsed() {
         // Shape of an AWS Price List API GetProducts priceList entry (trimmed).
         String ec2 = """

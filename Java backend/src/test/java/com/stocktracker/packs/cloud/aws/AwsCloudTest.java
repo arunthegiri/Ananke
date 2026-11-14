@@ -270,7 +270,9 @@ class AwsCloudTest {
 
         assertThat(t.getStatus()).isEqualTo("ERROR");
         assertThat(t.getHostKey()).isNull();
-        assertThat((String) t.getCloudMeta().get("error")).contains("host key did not appear").contains("The instance was terminated.");
+        assertThat((String) t.getCloudMeta().get("error")).contains("did not appear in its console output within 1 minute,")
+                .containsOnlyOnce("terminated");
+        assertThat(t.getCloudMeta()).containsEntry("state", "terminated");
         assertThat(aws.calls).contains("terminate " + t.getCloudInstanceId(), "deleteSg sg-1");
         assertThat(auditRepo.findAll()).extracting(AgentAuditEntry::getEvent).endsWith(AgentAuditEntry.Event.FAILED);
         assertThatThrownBy(() -> new SshComputeProvider(targetRepo, vault, null, "a", "b").credentials(t))
