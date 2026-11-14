@@ -39,7 +39,9 @@ const ghHeaders = {
 
 const sha256 = (buf) => createHash("sha256").update(buf).digest("hex");
 const gitBlobSha = (buf) =>
-  createHash("sha1").update(Buffer.concat([Buffer.from(`blob ${buf.length}\0`), buf])).digest("hex");
+  createHash("sha1")
+    .update(Buffer.concat([Buffer.from(`blob ${buf.length}\0`), buf]))
+    .digest("hex");
 
 function fail(msg) {
   console.error(`vendor-skills: ${msg}`);
@@ -61,7 +63,10 @@ const rawUrl = (repo, commit, path) =>
   `https://raw.githubusercontent.com/${repo}/${commit}/${path.split("/").map(encodeURIComponent).join("/")}`;
 
 async function tree(repo, commit) {
-  const buf = await fetchBytes(`https://api.github.com/repos/${repo}/git/trees/${commit}?recursive=1`, ghHeaders);
+  const buf = await fetchBytes(
+    `https://api.github.com/repos/${repo}/git/trees/${commit}?recursive=1`,
+    ghHeaders,
+  );
   const json = JSON.parse(buf.toString("utf8"));
   if (json.truncated) fail(`${repo}@${commit}: tree listing truncated`);
   return new Map(json.tree.filter((e) => e.type === "blob").map((e) => [e.path, e.sha]));
@@ -71,7 +76,12 @@ function frontmatterName(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
   if (!m) return null;
   const line = m[1].split(/\r?\n/).find((l) => /^name\s*:/.test(l));
-  return line ? line.replace(/^name\s*:\s*/, "").replace(/^["']|["']$/g, "").trim() : null;
+  return line
+    ? line
+        .replace(/^name\s*:\s*/, "")
+        .replace(/^["']|["']$/g, "")
+        .trim()
+    : null;
 }
 
 async function fetchVerified(repo, commit, path, blobs) {
@@ -97,8 +107,15 @@ async function vendor() {
     const blobs = await tree(p.repo, p.commit);
     const commit = p.commit;
     const pack = {
-      id: p.id, cloud: p.cloud, label: p.label, repo: p.repo, commit,
-      license: p.license, distribution: p.distribution, licenseFiles: [], skills: [],
+      id: p.id,
+      cloud: p.cloud,
+      label: p.label,
+      repo: p.repo,
+      commit,
+      license: p.license,
+      distribution: p.distribution,
+      licenseFiles: [],
+      skills: [],
     };
 
     for (const lf of p.licenseFiles) {
@@ -126,8 +143,16 @@ async function vendor() {
         files.push({ path: rel, sha256: sha256(buf), bytes: buf.length });
         if (p.distribution === "vendored") writes.push([join(bundleDir, p.id, name, rel), buf]);
       }
-      pack.skills.push({ name, sourcePath: s.path, topics: s.topics, files, excludedNonDocFiles: skipped.length });
-      console.log(`    ${name}: ${files.length} doc file(s)${skipped.length ? `, ${skipped.length} non-doc file(s) excluded` : ""}`);
+      pack.skills.push({
+        name,
+        sourcePath: s.path,
+        topics: s.topics,
+        files,
+        excludedNonDocFiles: skipped.length,
+      });
+      console.log(
+        `    ${name}: ${files.length} doc file(s)${skipped.length ? `, ${skipped.length} non-doc file(s) excluded` : ""}`,
+      );
     }
     out.packs.push(pack);
   }

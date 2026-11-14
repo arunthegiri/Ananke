@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { KeyRound, Palette } from "lucide-react";
+import { BookOpenCheck, KeyRound, Palette } from "lucide-react";
 
 import { TerminalPanel } from "@/components/terminal/TerminalPanel";
 import { AiProviderPanel } from "@/components/settings/AiProviderSettings";
+import { AgentSkillsPanel } from "@/components/settings/AgentSkillsSettings";
 import { AppearanceControls } from "@/components/ThemeSettings";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,13 @@ const SECTIONS = [
     icon: KeyRound,
     blurb:
       "Bring your own LLM. Paste a key from Anthropic, OpenAI, Groq, OpenRouter, DeepSeek, Moonshot or any OpenAI-compatible server (Ollama, LM Studio, vLLM), pick a model, and make it Copilot's provider. Keys are stored on your Ananke backend and never shown again.",
+  },
+  {
+    id: "skills",
+    label: "Agent skills",
+    icon: BookOpenCheck,
+    blurb:
+      "Official AWS, Google Cloud and Azure skills that Copilot and the Pack agent can read with any model. Each pack is pinned to an upstream commit and checksum-verified when the backend starts. Skills are guidance only: agents never run their scripts.",
   },
   {
     id: "appearance",
@@ -78,6 +86,8 @@ function SettingsPage() {
           </p>
           {section === "ai" ? (
             <AiProviderPanel bodyClassName="min-h-0 flex-1" />
+          ) : section === "skills" ? (
+            <AgentSkillsPanel bodyClassName="min-h-0 flex-1" />
           ) : (
             <div className="flex max-w-sm flex-col gap-4 p-5">
               <AppearanceControls />

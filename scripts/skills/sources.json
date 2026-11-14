@@ -14,7 +14,10 @@
         { "path": "plugins/aws-core/skills/aws-compute", "topics": ["compute", "gpu"] },
         { "path": "plugins/aws-core/skills/aws-iam", "topics": ["identity"] },
         { "path": "plugins/aws-core/skills/aws-billing-and-cost-management", "topics": ["cost"] },
-        { "path": "plugins/aws-core/skills/aws-cloudformation", "topics": ["deployment", "identity"] }
+        {
+          "path": "plugins/aws-core/skills/aws-cloudformation",
+          "topics": ["deployment", "identity"]
+        }
       ]
     },
     {
@@ -28,7 +31,10 @@
       "distribution": "vendored",
       "skills": [
         { "path": "plugins/aws-serverless/skills/aws-lambda", "topics": ["serverless"] },
-        { "path": "plugins/aws-serverless/skills/aws-serverless-deployment", "topics": ["serverless", "deployment"] }
+        {
+          "path": "plugins/aws-serverless/skills/aws-serverless-deployment",
+          "topics": ["serverless", "deployment"]
+        }
       ]
     },
     {
@@ -42,7 +48,10 @@
       "distribution": "vendored",
       "skills": [
         { "path": "skills/cloud/compute-vm-creation", "topics": ["compute", "gpu"] },
-        { "path": "skills/cloud/compute-spot-capacity-advice", "topics": ["compute", "gpu", "cost"] },
+        {
+          "path": "skills/cloud/compute-spot-capacity-advice",
+          "topics": ["compute", "gpu", "cost"]
+        },
         { "path": "skills/cloud/google-cloud-recipe-auth", "topics": ["identity"] },
         { "path": "skills/cloud/iam-helper-for-troubleshooting", "topics": ["identity"] },
         { "path": "skills/cloud/gcloud", "topics": ["cli"] },
