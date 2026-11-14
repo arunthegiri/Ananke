@@ -167,6 +167,12 @@ function createWindow(baseUrl) {
   if (process.env.ANANKE_SNAPSHOT) {
     win.webContents.once("did-finish-load", () =>
       setTimeout(async () => {
+        if (process.env.ANANKE_SNAPSHOT_CLICK) {
+          await win.webContents.executeJavaScript(
+            `document.querySelector(${JSON.stringify(process.env.ANANKE_SNAPSHOT_CLICK)})?.click()`,
+          );
+          await new Promise((r) => setTimeout(r, 2500));
+        }
         const img = await win.webContents.capturePage();
         fs.writeFileSync(process.env.ANANKE_SNAPSHOT, img.toPNG());
       }, 4000),
