@@ -313,6 +313,87 @@ vendor's native Skills feature. Load-bearing rules:
 - **API and UI:** `GET /api/skills/packs`, `PUT /api/skills/packs/{id} {enabled}` (persisted to `ananke.skills.settings-file`), and `GET /api/skills/agents`. The UI lives in Settings → Agent skills (`?section=skills`).
 - **Tests (offline):** `SkillRegistryTest`, `SkillToolsetTest`, `CloudActionGatingTest`, and `AgentSkillsOfflineTest`, where a scripted `LLMClient` calls `load_skill` on the real bundle and answers from it, through both agents.
 
+### Agent runtime (Dev-notes/Ananke Agent Integration.md — issue #9)
+
+The Agent Integration spec turns Copilot into a durable multi-agent research runtime, delivered in
+milestones M0–M7. **M1 has started: per-agent model routing (W1) is in `com.stocktracker.agent.model`.**
+Everything sits behind rollout flags that are off by default, and nothing in the legacy Copilot path
+changed. Spec section numbers in comments (`§5.4`) point at that doc.
+
+Architecture decisions (M0):
+- **Modular monolith.** The control plane lives inside this Spring Boot service, with durable Postgres
+  state behind replaceable interfaces. There is no second workflow engine and no LLM framework that
+  owns state. Python and C++ stay behind their existing process boundaries.
+- **Models resolve per role, never globally.** `AgentModelResolver` resolves each role to an immutable
+  `ResolvedModelBinding`. `ModelClientFactory.client(binding, ctx)` returns a `ScopedModelClient`, an
+  `LLMClient` that `AgentToolLoop` runs unchanged.
+  - The legacy `@Primary SettingsAwareLLMClient` / `LlmSettingsService.activeClient()` path is
+    untouched and is never consulted by the new path.
+  - **Do not wrap or replace the `@Primary` bean.** Callers opt in by asking the factory.
+- **Local ownership.** Every new row carries `workspace_id`. The server sets it to `local`
+  (`Workspaces.LOCAL`), and no API accepts a workspace. This is a seam for hosted use; it is not
+  authorization.
+- **Flyway allocation.**
+  - V8 = agent-skills, and V10 = this work.
+  - **V9 is claimed twice**: `feature/cloud-compute` has `V9__cloud_compute.sql` and
+    `feature/multi-asset` has `V9__instruments.sql`. Resolve that before either merges.
+  - Claim the next free number in this table when you add a migration.
+
+Load-bearing rules (W1):
+- **Precedence is run override → project → workspace role → workspace default → `MODEL_BINDING_REQUIRED`.**
+  - Roles that need tool calling (planner, researcher, quant designer, builder, training specialist)
+    never inherit the default implicitly; an explicit `inherit` row is needed.
+  - The legacy Settings provider becomes a default only through the one-time
+    `POST /api/model-connections/import-legacy`. Resolution never falls back to it silently.
+- **Connections, not provider labels.** `model_connections` holds the adapter, endpoint, server-derived
+  trust zone and a vault reference (`model-conn:<id>` / `api-key`).
+  - Client caches key on connection id + version + model + deployment revision + hash of the current
+    credential.
+  - Two keys for the same provider never collide.
+  - Rotating a key applies on the next call without a version bump. Revoking it fails that call
+    with `CREDENTIAL_REVOKED`.
+- **Snapshots are checked on every call.**
+  - An edited connection gives `CONNECTION_CHANGED`. A stopped Pack gives `DEPLOYMENT_UNAVAILABLE`,
+    and a redeployed one gives `DEPLOYMENT_CHANGED`. All of these mean "rebind"; none of them drifts
+    to another model.
+  - **Fallback is `DISABLED` unless a binding lists explicit targets.** Those targets are resolved
+    up front under the same trust-zone and capability rules.
+  - There is no "any configured provider" mode. Do not copy `ResolvingLLMClient`'s fallback into
+    this path.
+- **Capabilities are probed for exactly this configuration.**
+  - `POST /api/model-connections/{id}/probe` runs a text call plus a nonce-echo tool call and
+    stores the results in `model_capability_probes`.
+  - Results are keyed by connection version, model and deployment revision (Pack revision =
+    HF SHA + hash of launch config, tool parser and served name). They expire after 30 days.
+  - TEXT needs no probe. TOOL_CALLING and the other capabilities need `VERIFIED`. A failed probe
+    is `UNVERIFIED`, never `UNSUPPORTED`.
+- **Every attempted call is a `model_calls` row.**
+  - Each row records role, run, task, the exact binding, an input-manifest sha256, usage (null when
+    unknown, never 0), latency, and `fallback_from`.
+  - Error text is scrubbed of the call's key and of bearer or key-shaped tokens, and capped at
+    500 characters.
+- **Packs are reached through `packs/PackDeploymentDirectory`**, a read-only descriptor over
+  `PackService.clientFor`. The runtime never casts to Pack internals.
+- **Flags** (`ananke.features.*`, all false): `agent-runtime-v2`, `per-agent-models`,
+  `isolated-execution`, `research-monitoring`, `control-lab` and `paper-deployment-v1`.
+  - Only `per-agent-models` gates anything so far: the `/api/agents`, `/api/agent-bindings/*`,
+    `/api/model-connections/*` and `/api/model-calls` routes answer `404 FEATURE_DISABLED` while
+    it is off.
+  - `GET /api/agent-runtime/flags` is always on.
+- **Known gaps (tracked in #9):**
+  - `KimiClient`'s JDK transport reports a 401 as an I/O error without the status. Retry
+    classification (§8.4, M2) must not rely on the status code until that is fixed.
+  - Legacy keys stay in `llm-settings.json` until `LlmSettingsService` reads from the vault. That
+    is a change to coordinate with its owners; until then import copies the keys, it does not
+    move them.
+  - There is no UI yet: the Settings → Agents section is the next M1 slice.
+- **Tests (offline):**
+  - `AgentModelResolverTest`, `ScopedModelClientTest` (includes the §5.7 acceptance scenario:
+    concurrent roles plus a Pack while the legacy provider flips), and `ModelProbeServiceTest`.
+  - `AgentModelPersistenceIntegrationTest`: real V7 + V10 SQL, vault and wiring on Postgres.
+  - `SchemaValidationIntegrationTest`: every migration on the TimescaleDB image, then Hibernate
+    `validate` on every entity.
+
 ### Copilot V1 regression baseline (Phase 0)
 
 These contracts are **frozen by tests** as the regression baseline for Phase 1. A Phase 1 change
@@ -449,6 +530,7 @@ Backend-side (`.env`, passed to `stock-tracker` by compose):
 | `ANANKE_SKILLS_FETCH_DIR` | `./data/skills` | Agent skills: install dir for `distribution: "fetch"` packs (none today) |
 | `ANANKE_SKILLS_SETTINGS_FILE` | `./data/skills-settings.json` | Agent skills: packs switched off in Settings |
 | `ANANKE_SKILLS_BUNDLE_DIR` | unset | Agent skills: load a whole bundle from disk instead of the jar (same checksum rules) |
+| `ANANKE_FEATURE_PER_AGENT_MODELS` | `false` | Agent runtime: enables per-agent model settings/routing API. Siblings `ANANKE_FEATURE_{AGENT_RUNTIME_V2,ISOLATED_EXECUTION,RESEARCH_MONITORING,CONTROL_LAB,PAPER_DEPLOYMENT_V1}` are declared, not yet implemented |
 | `ANANKE_SECRET_KEY` | unset | Packs: base64 32-byte master key for encrypted credentials. Unset = generated key file on the data volume |
 | `ANANKE_VLLM_VERSION` | `0.11.0` | Packs: vLLM version installed on machines (pinned) |
 | `ANANKE_PACKS_HEALTH_TIMEOUT_MINUTES` / `ANANKE_PACKS_DEPLOY_TIMEOUT_MINUTES` | `30` / `90` | Packs: model-load and install/download limits |
