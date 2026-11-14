@@ -21,7 +21,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeSet;
+import java.util.LinkedHashSet;
+import java.util.regex.Pattern;
 
 /**
  * User-chosen Copilot provider, model and API keys, set from the Settings UI
@@ -178,7 +179,8 @@ public class LlmSettingsService {
         String base = baseUrlOverride != null && !baseUrlOverride.isBlank()
                 ? baseUrlOverride.trim() : baseUrlFor(providerId);
 
-        TreeSet<String> found = new TreeSet<>();
+        // Provider order is kept (Anthropic and most others list newest first).
+        LinkedHashSet<String> found = new LinkedHashSet<>();
         String error = null;
         if (base.isBlank()) {
             error = "Set a base URL first.";
@@ -206,7 +208,7 @@ public class LlmSettingsService {
                     JsonNode data = mapper.readTree(res.body()).path("data");
                     for (JsonNode m : data) {
                         String id = m.path("id").asText("");
-                        if (!id.isBlank()) found.add(id);
+                        if (!id.isBlank() && isChatModel(providerId, id)) found.add(id);
                     }
                 }
             } catch (IllegalArgumentException e) {
@@ -219,9 +221,23 @@ public class LlmSettingsService {
             }
         }
 
-        List<String> models = new ArrayList<>(p.suggestedModels());
-        for (String id : found) if (!models.contains(id)) models.add(id);
+        // A live list is authoritative; the presets are only a fallback for when it can't load.
+        List<String> models = found.isEmpty() ? new ArrayList<>(p.suggestedModels()) : new ArrayList<>(found);
         return new ModelList(models, !found.isEmpty(), error);
+    }
+
+    /**
+     * OpenAI's /models lists every model on the account — embeddings, speech,
+     * image, moderation — and none of those can drive the copilot's chat loop.
+     */
+    private static final Pattern OPENAI_NON_CHAT = Pattern.compile(
+            "embedding|whisper|tts|dall-e|davinci|babbage|moderation|transcribe|audio|realtime|image|search|similarity|edit|computer-use",
+            Pattern.CASE_INSENSITIVE);
+
+    static boolean isChatModel(String providerId, String id) {
+        if (!"openai".equals(providerId)) return true;
+        if (OPENAI_NON_CHAT.matcher(id).find()) return false;
+        return id.startsWith("gpt-") || id.startsWith("chatgpt-") || id.matches("^o\\d.*");
     }
 
     public record ModelList(List<String> models, boolean live, String error) { }

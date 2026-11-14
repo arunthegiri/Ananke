@@ -54,7 +54,6 @@ function CopilotPage() {
         bodyClassName="flex min-h-0 flex-col"
         actions={
           <div className="flex items-center gap-2">
-            <ModelPicker />
             <SegmentedControl
               options={MODES}
               value={mode}
@@ -272,27 +271,32 @@ function Composer({
   return (
     <div className="shrink-0 border-t border-subtle bg-surface-1 p-3">
       <div className="mx-auto flex w-full max-w-3xl items-end gap-2">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter sends; Shift+Enter breaks the line.
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              onSubmit();
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter sends; Shift+Enter breaks the line.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSubmit();
+              }
+            }}
+            rows={2}
+            disabled={disabled}
+            placeholder={
+              mode === "research" ? "Describe a strategy to build and backtest…" : "Ask a question…"
             }
-          }}
-          rows={2}
-          disabled={disabled}
-          placeholder={
-            mode === "research" ? "Describe a strategy to build and backtest…" : "Ask a question…"
-          }
-          className={cn(
-            "min-h-[3.25rem] flex-1 resize-y rounded-md border border-subtle bg-surface-0 px-2.5 py-2",
-            "text-xs leading-relaxed text-foreground placeholder:text-muted-foreground",
-            "focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50",
-          )}
-        />
+            className={cn(
+              "min-h-[3.25rem] flex-1 resize-y rounded-md border border-subtle bg-surface-0 px-2.5 py-2",
+              "text-xs leading-relaxed text-foreground placeholder:text-muted-foreground",
+              "focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50",
+            )}
+          />
+          <div className="flex items-center">
+            <ModelPicker className="-ml-1" />
+          </div>
+        </div>
         {isStreaming ? (
           <button
             type="button"

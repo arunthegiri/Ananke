@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
-import { Check, CircleDot, KeyRound, Loader2, RefreshCw } from "lucide-react";
+import { Check, CircleDot, KeyRound, Loader2, RefreshCw, Sparkles } from "lucide-react";
 
 import {
   Dialog,
@@ -21,6 +21,8 @@ import {
 import {
   isUsable,
   llmSettingsApi,
+  pickDefaultModel,
+  resolveKey,
   type LlmModelList,
   type LlmProvider,
 } from "@/lib/api/llm-settings";
@@ -63,6 +65,8 @@ export function AiProviderSettings() {
           </DialogDescription>
         </DialogHeader>
 
+        {settings.data && <QuickAdd onAdded={(id) => setSelected(id)} />}
+
         {settings.isError ? (
           <div className="p-5">
             <PanelState
@@ -80,7 +84,7 @@ export function AiProviderSettings() {
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : (
-          <div className="grid h-[440px] grid-cols-[200px_1fr]">
+          <div className="grid h-[400px] grid-cols-[200px_1fr]">
             <ul
               className="overflow-y-auto border-r border-border-subtle py-2"
               role="listbox"
@@ -126,6 +130,91 @@ export function AiProviderSettings() {
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * "Paste any API key": detects the provider from the key, verifies it by
+ * loading that provider's models, saves it with a sensible default model and
+ * makes it the Copilot's provider — one paste, no other choices required.
+ */
+function QuickAdd({ onAdded }: { onAdded: (provider: string) => void }) {
+  const update = useUpdateLlmSettings();
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const add = async () => {
+    const k = key.trim();
+    if (!k || busy) return;
+    setBusy(true);
+    setResult(null);
+    const found = await resolveKey(k);
+    if ("error" in found) {
+      setResult({ ok: false, text: found.error });
+      setBusy(false);
+      return;
+    }
+    const model = pickDefaultModel(found.provider, found.models);
+    update.mutate(
+      { provider: found.provider, apiKey: k, model, activate: true },
+      {
+        onSuccess: (data) => {
+          const label =
+            data.providers.find((p) => p.id === found.provider)?.label ?? found.provider;
+          setKey("");
+          setResult({
+            ok: true,
+            text: `${label} connected — ${found.models.length} models available. Copilot is now using ${model}; switch models from the chat box.`,
+          });
+          onAdded(found.provider);
+        },
+        onError: (e) => setResult({ ok: false, text: errText(e) }),
+        onSettled: () => setBusy(false),
+      },
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-2 border-b border-border-subtle bg-surface-1 px-5 py-4">
+      <Label className="flex items-center gap-1.5 text-xs text-text-secondary">
+        <Sparkles className="h-3.5 w-3.5 text-primary" />
+        Paste any API key — Anthropic, OpenAI, OpenRouter, Groq, DeepSeek or Moonshot
+      </Label>
+      <div className="flex gap-2">
+        <Input
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void add();
+          }}
+          placeholder="sk-ant-…  or  sk-proj-…"
+          className="h-9 flex-1 font-mono text-xs"
+          data-testid="ai-quick-key"
+        />
+        <Button
+          size="sm"
+          onClick={() => void add()}
+          disabled={!key.trim() || busy}
+          className="h-9 text-xs"
+          data-testid="ai-quick-add"
+        >
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {busy ? "Checking…" : "Connect"}
+        </Button>
+      </div>
+      {result && (
+        <span
+          role="status"
+          className={cn("text-[11px]", result.ok ? "text-text-secondary" : "text-destructive")}
+        >
+          {result.text}
+        </span>
+      )}
+    </div>
   );
 }
 
