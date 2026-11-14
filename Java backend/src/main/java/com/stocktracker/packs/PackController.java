@@ -116,6 +116,11 @@ public class PackController {
     /** Honest list: SSH works; cloud providers are listed as not available rather than faked. */
     @GetMapping("/compute/providers")
     public List<ProviderInfo> providers() {
+        return providerList(ssh);
+    }
+
+    /** Shared with the Pack agent's read-only {@code list_compute_providers} tool. */
+    public static List<ProviderInfo> providerList(SshComputeProvider ssh) {
         return List.of(
                 new ProviderInfo(ssh.id(), ssh.label(), false, true, "Any Linux machine with an NVIDIA GPU you can SSH into."),
                 new ProviderInfo("aws", "AWS (EC2 GPU)", true, false, "Account linking and provisioning are not built yet."),

@@ -1,10 +1,15 @@
 package com.stocktracker.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stocktracker.agent.AgentCapabilities;
+import com.stocktracker.agent.AgentProfile;
+import com.stocktracker.agent.AgentTool;
+import com.stocktracker.agent.AgentToolLoop;
+import com.stocktracker.agent.AgentToolbox;
 import com.stocktracker.dto.ApiDto;
 import com.stocktracker.dto.CopilotDto;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -55,6 +60,8 @@ public class CopilotService {
     private final SymbolService           symbolService;
     private final AssetSearchService      assetSearch;
     private final StockPriceService       priceService;
+    /** Shared agent kit (Packs build doc §9): skill index + load_skill + linked-cloud tools. Chat mode only. */
+    private final AgentCapabilities       agents;
 
     /**
      * Spring's configured mapper, not a bare {@code new ObjectMapper()}: the
@@ -74,6 +81,7 @@ public class CopilotService {
     });
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
 
+    /** Without the shared agent kit — the Phase-0 fixture's constructor; behaviour is identical for research. */
     public CopilotService(LLMClient llm,
                           JupyterExecutionService jupyter,
                           StrategyService strategyService,
@@ -81,6 +89,19 @@ public class CopilotService {
                           AssetSearchService assetSearch,
                           StockPriceService priceService,
                           ObjectMapper mapper) {
+        this(llm, jupyter, strategyService, symbolService, assetSearch, priceService, mapper, AgentCapabilities.none());
+    }
+
+    @Autowired
+    public CopilotService(LLMClient llm,
+                          JupyterExecutionService jupyter,
+                          StrategyService strategyService,
+                          SymbolService symbolService,
+                          AssetSearchService assetSearch,
+                          StockPriceService priceService,
+                          ObjectMapper mapper,
+                          AgentCapabilities agents) {
+        this.agents          = agents;
         this.mapper          = mapper;
         this.llm             = llm;
         this.jupyter         = jupyter;
@@ -211,10 +232,10 @@ public class CopilotService {
         pool.submit(() -> {
             try {
                 List<Map<String, Object>> messages = new ArrayList<>();
-                messages.add(msg("system", CHAT_SYSTEM_PROMPT));
+                messages.add(msg("system", agents.systemPrompt(CHAT_SYSTEM_PROMPT, AgentProfile.COPILOT)));
                 appendHistory(messages, history);
 
-                String answer = runToolLoop(messages, emitter);
+                String answer = runToolLoop(messages, chatTools(), emitter);
                 emit(emitter, CopilotDto.ResearchEvent.token(answer));
                 emit(emitter, CopilotDto.ResearchEvent.done(null));
             } catch (Exception e) {
@@ -237,7 +258,7 @@ public class CopilotService {
         messages.add(msg("user", prompt));
 
         // 1 — tool loop until the model produces its final answer with the code.
-        String answer = runToolLoop(messages, emitter);
+        String answer = runToolLoop(messages, researchTools(), emitter);
 
         String code = extractCode(answer);
         if (code == null || code.isBlank()) {
@@ -379,54 +400,23 @@ public class CopilotService {
 
     // ── LLM tool loop ─────────────────────────────────────────────────────────
 
-    /** Drives tool calls until the model answers, returning that final text. */
-    private String runToolLoop(List<Map<String, Object>> messages, SseEmitter emitter) {
-        for (int i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-            JsonNode root   = llm.chat(messages, toolDefinitions(), MAX_TOKENS);
-            JsonNode choice = root.path("choices").path(0);
-            JsonNode message = choice.path("message");
-
-            if (!"tool_calls".equals(choice.path("finish_reason").asText())) {
-                return message.path("content").asText("");
-            }
-
-            // Echo the assistant turn back verbatim so tool_call_ids line up.
-            messages.add(mapper.convertValue(message, Map.class));
-
-            for (JsonNode call : message.path("tool_calls")) {
-                String toolName = call.path("function").path("name").asText();
-                String callId   = call.path("id").asText();
-                Object result;
-                try {
-                    JsonNode args = mapper.readTree(
-                            call.path("function").path("arguments").asText("{}"));
-                    emit(emitter, CopilotDto.ResearchEvent.status(describeTool(toolName, args)));
-                    result = dispatchTool(toolName, args);
-                } catch (Exception e) {
-                    result = Map.of("error", rootMessage(e));
-                }
-
-                Map<String, Object> toolMsg = new LinkedHashMap<>();
-                toolMsg.put("role", "tool");
-                toolMsg.put("tool_call_id", callId);
-                toolMsg.put("content", writeJson(result));
-                messages.add(toolMsg);
-            }
-        }
-        return "";
+    /** Drives tool calls until the model answers, returning that final text (shared loop, §9.2). */
+    private String runToolLoop(List<Map<String, Object>> messages, AgentToolbox tools, SseEmitter emitter) {
+        return AgentToolLoop.run(llm, mapper, messages, tools, MAX_TOOL_ITERATIONS, MAX_TOKENS,
+                (name, args, status) -> emit(emitter, CopilotDto.ResearchEvent.status(status)));
     }
 
-    private Object dispatchTool(String name, JsonNode args) {
-        return switch (name) {
-            case "list_symbols"   -> symbolService.listAll();
-            case "search_symbols" -> assetSearch.search(args.path("query").asText(""));
-            case "add_symbol"     -> symbolService.addSymbol(args.path("symbol").asText("").toUpperCase());
-            case "get_price_data" -> priceSummary(
-                    args.path("symbol").asText("").toUpperCase(),
-                    args.path("from").asText(""),
-                    args.path("to").asText(""));
-            default -> Map.of("error", "Unknown tool: " + name);
-        };
+    /**
+     * Research mode keeps exactly the four data tools (Phase-0 baseline): cloud skills are
+     * irrelevant to writing a strategy and would only add tool calls to the frozen SSE sequence.
+     */
+    AgentToolbox researchTools() {
+        return AgentToolbox.builder("copilot-research").addAll(copilotTools()).build();
+    }
+
+    /** Chat mode composes the shared kit: the data tools + load_skill + linked-cloud tools. */
+    AgentToolbox chatTools() {
+        return agents.toolbox(AgentProfile.COPILOT, null, copilotTools());
     }
 
     /**
@@ -474,24 +464,30 @@ public class CopilotService {
         return out;
     }
 
-    private List<Map<String, Object>> toolDefinitions() {
+    private List<AgentTool> copilotTools() {
         return List.of(
-                tool("list_symbols",
+                AgentTool.of("list_symbols",
                      "List every symbol currently tracked with stored price data.",
-                     Map.of("type", "object", "properties", Map.of())),
-                tool("search_symbols",
+                     Map.of("type", "object", "properties", Map.of()),
+                     args -> symbolService.listAll(),
+                     args -> "Listing tracked symbols…"),
+                AgentTool.of("search_symbols",
                      "Search tradable assets by ticker or company name.",
                      Map.of("type", "object",
                             "properties", Map.of("query",
                                     Map.of("type", "string", "description", "Ticker or company name")),
-                            "required", List.of("query"))),
-                tool("add_symbol",
+                            "required", List.of("query")),
+                     args -> assetSearch.search(args.path("query").asText("")),
+                     args -> "Searching for \"" + args.path("query").asText("") + "\"…"),
+                AgentTool.of("add_symbol",
                      "Start tracking a symbol so its price history can be backfilled.",
                      Map.of("type", "object",
                             "properties", Map.of("symbol",
                                     Map.of("type", "string", "description", "Ticker, e.g. NVDA")),
-                            "required", List.of("symbol"))),
-                tool("get_price_data",
+                            "required", List.of("symbol")),
+                     args -> symbolService.addSymbol(args.path("symbol").asText("").toUpperCase()),
+                     args -> "Adding " + args.path("symbol").asText("") + "…"),
+                AgentTool.of("get_price_data",
                      "Summarise stored OHLCV data for a symbol over a date range. "
                      + "Call this before writing a strategy to confirm the data exists.",
                      Map.of("type", "object",
@@ -499,28 +495,12 @@ public class CopilotService {
                                     "symbol", Map.of("type", "string", "description", "Ticker, e.g. NVDA"),
                                     "from",   Map.of("type", "string", "description", "Start date, YYYY-MM-DD"),
                                     "to",     Map.of("type", "string", "description", "End date, YYYY-MM-DD"))),
-                            "required", List.of("symbol", "from", "to"))));
-    }
-
-    private static Map<String, Object> tool(String name, String description, Map<String, Object> params) {
-        Map<String, Object> fn = new LinkedHashMap<>();
-        fn.put("name", name);
-        fn.put("description", description);
-        fn.put("parameters", params);
-        Map<String, Object> wrapper = new LinkedHashMap<>();
-        wrapper.put("type", "function");
-        wrapper.put("function", fn);
-        return wrapper;
-    }
-
-    private static String describeTool(String name, JsonNode args) {
-        return switch (name) {
-            case "list_symbols"   -> "Listing tracked symbols…";
-            case "search_symbols" -> "Searching for \"" + args.path("query").asText("") + "\"…";
-            case "add_symbol"     -> "Adding " + args.path("symbol").asText("") + "…";
-            case "get_price_data" -> "Fetching " + args.path("symbol").asText("") + " price data…";
-            default -> "Working…";
-        };
+                            "required", List.of("symbol", "from", "to")),
+                     args -> priceSummary(
+                             args.path("symbol").asText("").toUpperCase(),
+                             args.path("from").asText(""),
+                             args.path("to").asText("")),
+                     args -> "Fetching " + args.path("symbol").asText("") + " price data…"));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

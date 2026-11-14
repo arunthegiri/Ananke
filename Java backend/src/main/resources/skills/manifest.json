@@ -1,0 +1,986 @@
+{
+  "version": 1,
+  "packs": [
+    {
+      "id": "aws-agent-toolkit",
+      "cloud": "aws",
+      "label": "Agent Toolkit for AWS",
+      "repo": "aws/agent-toolkit-for-aws",
+      "commit": "19b89b263b725b04082a55b4fc4d24d22f065999",
+      "license": "Apache-2.0",
+      "distribution": "vendored",
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+        },
+        {
+          "path": "NOTICE",
+          "sha256": "d4290ed64c2edd0fce1d84e3f9dfb2881240fe534def76b8cd29ed6af683e287"
+        }
+      ],
+      "skills": [
+        {
+          "name": "aws-compute",
+          "sourcePath": "plugins/aws-core/skills/aws-compute",
+          "topics": [
+            "compute",
+            "gpu"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "b425842b6e3c8f679490eb064a2a6770f252473b610a5b4bd2072f23f62c3154",
+              "bytes": 8926
+            },
+            {
+              "path": "references/ami-management.md",
+              "sha256": "30920354bf6807ea863530f95d0a88229982669a5f23a65c62165ec5b4f916fc",
+              "bytes": 6014
+            },
+            {
+              "path": "references/auto-scaling.md",
+              "sha256": "315b54b578cbb7320819c58b80151191339dc64aacffeaf165762d27be696b65",
+              "bytes": 10349
+            },
+            {
+              "path": "references/instance-selection.md",
+              "sha256": "7d8468eb30994292294575a9b75d07f59f3dc12c3193e3f2a9a47e92cd62bec5",
+              "bytes": 5819
+            },
+            {
+              "path": "references/provisioning.md",
+              "sha256": "7f71a33b8d2a87e7c79a95e23d6ef517234d4164e4b343d7485e0333fb109006",
+              "bytes": 9397
+            },
+            {
+              "path": "references/systems-manager.md",
+              "sha256": "1f022480319ea5df79609460d868e65e45eb0a64a416c708554b35f3aaa6e11b",
+              "bytes": 7566
+            },
+            {
+              "path": "references/troubleshooting.md",
+              "sha256": "775d42469900f356cb9e4728a9fa8c2f0ec26c77b524fd9f132cb6f149b4006a",
+              "bytes": 5802
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "aws-iam",
+          "sourcePath": "plugins/aws-core/skills/aws-iam",
+          "topics": [
+            "identity"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "27f4733539913bf46e6ab23cc4aee00e7973c15e876c25bf86bac6dc9cb5057f",
+              "bytes": 7378
+            },
+            {
+              "path": "references/aws-iam-policy-generation.md",
+              "sha256": "86a29411bcfad42be7e4fba1c5b1821404dcef7978f719dd318683d1da413971",
+              "bytes": 39902
+            },
+            {
+              "path": "references/aws-iam-role-management.md",
+              "sha256": "77be16ee747569264ed42bf9f8ce56641cc1eb9fa7aed7f438466939836d9518",
+              "bytes": 6807
+            },
+            {
+              "path": "references/common-pitfalls.md",
+              "sha256": "f8dcfbbc7b71d6b02c0f57822dc3b43bdca0b949abfea889f18ce2869a946c55",
+              "bytes": 5892
+            },
+            {
+              "path": "references/service-authorization.md",
+              "sha256": "0368bfcd3a30a438e47b81042a89746d5990298f599ac00400d4f7a90d6c24e8",
+              "bytes": 2765
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "aws-billing-and-cost-management",
+          "sourcePath": "plugins/aws-core/skills/aws-billing-and-cost-management",
+          "topics": [
+            "cost"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "d631ab1017bb779fd0b00ddd8b032e18652f2fa2fc1c232b64335d383151bdd1",
+              "bytes": 9108
+            },
+            {
+              "path": "references/budgets.md",
+              "sha256": "357d1ffc4bdbc3815b411d430e1dee80b724b921d4fc9b083be99e23074acee3",
+              "bytes": 2413
+            },
+            {
+              "path": "references/cost-audit.md",
+              "sha256": "43f4114a18fb8770d66827369452d335e8eea88bbcf8b1898655d0e4dc926077",
+              "bytes": 3245
+            },
+            {
+              "path": "references/cost-explorer.md",
+              "sha256": "b6439c6f3e2d68c0cd6829dfb236584a496ed2fd4f62adc4a0d0f830a173021f",
+              "bytes": 7525
+            },
+            {
+              "path": "references/cost-optimization-hub.md",
+              "sha256": "e48cd5e0d70d33d7b3719609df8c5a903d4b92a669080c35aa321d0dcfb642e2",
+              "bytes": 7356
+            },
+            {
+              "path": "references/cur-athena.md",
+              "sha256": "2dfd047bb3d1c3c5f74b3eb5f4e4957a9caf7fad006f6fa4de396039a5c20aac",
+              "bytes": 7193
+            },
+            {
+              "path": "references/deterministic-calculations.md",
+              "sha256": "bb8d3df2c7beed78bd850f0d36bbe8ac34b66acd7e2d0e99d994932fd8e01c29",
+              "bytes": 2594
+            },
+            {
+              "path": "references/ebs-optimization.md",
+              "sha256": "38f2fce216ac3a6ee1801b6a5ffc4f3bdb433cc2df713ede6086a53903cc1ec3",
+              "bytes": 2773
+            },
+            {
+              "path": "references/ec2-rightsizing.md",
+              "sha256": "e858689e8a4b483bc10980d3c9b1c2b258b949de1923f526d06b23ce2283c41f",
+              "bytes": 3337
+            },
+            {
+              "path": "references/free-tier.md",
+              "sha256": "c68cec87943b9833f42903337f99873213ef866beb959defdd87fbbdcf7dad94",
+              "bytes": 1617
+            },
+            {
+              "path": "references/lambda-optimization.md",
+              "sha256": "374eaef74afc14913b96cf367860fdd70bc6fb0d4710dcd23ae7e380f3a9085a",
+              "bytes": 2213
+            },
+            {
+              "path": "references/pricing-lookup.md",
+              "sha256": "458b83abd58b4bd33836905c59ffe1f7dd606cb3f050c112d915006faeadc350",
+              "bytes": 3848
+            },
+            {
+              "path": "references/rds-optimization.md",
+              "sha256": "cd2f6fddcea40562b23898d1b7219543d728366f52bf977fe3ec8b88779c1450",
+              "bytes": 1810
+            },
+            {
+              "path": "references/reserved-instances.md",
+              "sha256": "c4fbb1eabc7e1b763e73a14cc776e8238d7e946e1055c9568be7a45e2637d909",
+              "bytes": 2391
+            },
+            {
+              "path": "references/savings-plans.md",
+              "sha256": "2b2f6569bf48a7896f41cbd09db94b2cdf5d38882bb2099e490ed061129ec9e6",
+              "bytes": 3366
+            },
+            {
+              "path": "references/service-optimization.md",
+              "sha256": "b21784bd033fe670724eaf35efecc3c5717ca79d463aa24e86d9b2f1af2246fd",
+              "bytes": 3028
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "aws-cloudformation",
+          "sourcePath": "plugins/aws-core/skills/aws-cloudformation",
+          "topics": [
+            "deployment",
+            "identity"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "4c58cdf1e1532d9fab6cfc98de2b0cfb0d171fc414bb0032dbe5f4dfe01872be",
+              "bytes": 14498
+            },
+            {
+              "path": "references/author-cloudformation-best-practices.script.md",
+              "sha256": "f823e4c7ed10c10a67fc9b77a728837d0e6bbbdc105085354e18638529da7fc8",
+              "bytes": 9101
+            },
+            {
+              "path": "references/check-cloudformation-template-compliance.script.md",
+              "sha256": "886d5863afc46366c60c506050bb40f20adba625065842c19bbfcf25f8334643",
+              "bytes": 8125
+            },
+            {
+              "path": "references/cloudformation-language-server.md",
+              "sha256": "bc124030ce3e56efc293c3f4b3f7e84654afd84d9c0b245ba4daac65573fb55d",
+              "bytes": 8339
+            },
+            {
+              "path": "references/cloudformation-pre-deploy-validation.script.md",
+              "sha256": "ff9ea5895c8d55be112b5eb38683708bde5eb776f5bea2b13f5533cf99e595a6",
+              "bytes": 19945
+            },
+            {
+              "path": "references/deploy-with-express-mode.script.md",
+              "sha256": "ae5135d93e0ffa0bc61b68a329b8d63c93a1f88bccb3097751c37fc46385c48b",
+              "bytes": 12658
+            },
+            {
+              "path": "references/lookup-resource-properties.script.md",
+              "sha256": "6f0b3bd79dc18344f601d1c2b8cc3c4211ffdc523e50079ed9e524315798c904",
+              "bytes": 6464
+            },
+            {
+              "path": "references/persist-template-context.script.md",
+              "sha256": "5aa3a7b6091e18232f553395efa02587a3649d713dd96c3dc0ea991cd5b8456e",
+              "bytes": 14729
+            },
+            {
+              "path": "references/retrieve-template-context.script.md",
+              "sha256": "7f209c76e890132274900670ac9dad72fe5a9102c8fc64d4673a121a2b16cf5f",
+              "bytes": 19319
+            },
+            {
+              "path": "references/security-considerations.md",
+              "sha256": "ca6f81bcd7e2007a24a23853d6d6f17524b9e259273f0e88cadd756773cd4268",
+              "bytes": 4519
+            },
+            {
+              "path": "references/template-safety-guidance.md",
+              "sha256": "16457bbd4479dfb7d4350a15d8f66003c0254951a8bb52d25ea8098dab9570be",
+              "bytes": 8256
+            },
+            {
+              "path": "references/troubleshoot-deployment.script.md",
+              "sha256": "fe994a5ec891918b29aa84a4d7a2a5e9d26da939dbfdbf856d3c5328e68b81ec",
+              "bytes": 12732
+            },
+            {
+              "path": "references/troubleshoot-failed-stack.script.md",
+              "sha256": "2e332c2856b451682d4a480f70f1be8ad526252c2a0a0572ac45e77817915127",
+              "bytes": 9277
+            },
+            {
+              "path": "references/validate-with-cfn-lint.script.md",
+              "sha256": "5458d0e637fc8755db022dc04ae30e6c4ee3e3dc8e174703dcb4b6a1c644724a",
+              "bytes": 8041
+            },
+            {
+              "path": "references/validate-with-cloudformation-validate.script.md",
+              "sha256": "97cb16d73eb85e15457a6bdbb9f3e1708dfdcf0845d1e041432eede0fde75166",
+              "bytes": 9428
+            },
+            {
+              "path": "references/validation-tool-selection.md",
+              "sha256": "5dcc41d42ef67902a180bf3e45f577d63d74423febbd5b10aeb4aff65af58657",
+              "bytes": 3774
+            }
+          ],
+          "excludedNonDocFiles": 0
+        }
+      ]
+    },
+    {
+      "id": "aws-serverless",
+      "cloud": "aws",
+      "label": "Agent Plugin for AWS Serverless",
+      "repo": "awslabs/agent-plugins",
+      "commit": "6947600b07a9b527bb1048b6938eee046c9d36f1",
+      "license": "Apache-2.0",
+      "distribution": "vendored",
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+        },
+        {
+          "path": "NOTICE",
+          "sha256": "0295e4b248c03b34b07e1768b791612a367504f73926aa5aad336ac3c789f7c4"
+        }
+      ],
+      "skills": [
+        {
+          "name": "aws-lambda",
+          "sourcePath": "plugins/aws-serverless/skills/aws-lambda",
+          "topics": [
+            "serverless"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "26257c68ac930ccee6f48f2e7c5584fa81234b4f3fd4c5d460f0f4f82690b1a6",
+              "bytes": 12421
+            },
+            {
+              "path": "references/event-driven-architecture.md",
+              "sha256": "931af61ed4ea345c4a68a09f8fd6c393ff3508165d08ed4bbe3ce6dd871a8d77",
+              "bytes": 15940
+            },
+            {
+              "path": "references/event-sources.md",
+              "sha256": "1c2744b8bde70f70933945f7586ae693d81627bfa0c41de3c4b3af1e21947095",
+              "bytes": 16739
+            },
+            {
+              "path": "references/getting-started.md",
+              "sha256": "719a81fbc9a11da702d73524081a9e1a27794090f7a31f1d68f3c847ab4d36c7",
+              "bytes": 6097
+            },
+            {
+              "path": "references/observability.md",
+              "sha256": "2458db56d6902c1b48c21b5e28b8e3b87c6d5320b010b142a47d5088b0e6bdff",
+              "bytes": 23246
+            },
+            {
+              "path": "references/optimization.md",
+              "sha256": "c3ed10a2885dc7f0d0109281315505e521bd39f628e1d90f76e9b9e57f0fce19",
+              "bytes": 14893
+            },
+            {
+              "path": "references/orchestration-and-workflows.md",
+              "sha256": "5c4ac3e0a04afc2fe111ab7839292c16299269cf7df672e369e0b7362ec071ef",
+              "bytes": 6376
+            },
+            {
+              "path": "references/powertools.md",
+              "sha256": "4c6fcb210aec048f696911404c71aeb5199183f2eadee8fb4d9d5602b546de9e",
+              "bytes": 10398
+            },
+            {
+              "path": "references/troubleshooting.md",
+              "sha256": "f484c2104f604281c3010891bf7e2d0edd83831d9bc85db9f8e5739405307d86",
+              "bytes": 11621
+            },
+            {
+              "path": "references/web-app-deployment.md",
+              "sha256": "acbcbd2dbddf2cb38615744b9813166ecd5eea2c5b3073d5a1e5336c563d7946",
+              "bytes": 10852
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "aws-serverless-deployment",
+          "sourcePath": "plugins/aws-serverless/skills/aws-serverless-deployment",
+          "topics": [
+            "serverless",
+            "deployment"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "652f390acd47fd30b8a04a0f77c337b9f2aabe2d9592b9090012f8b096abd29f",
+              "bytes": 5364
+            },
+            {
+              "path": "references/cdk-lambda-constructs.md",
+              "sha256": "742b9a4578651bc75b53f9967d6cc2abf2f15d673a74b32bee7d03938ee1a0e8",
+              "bytes": 3408
+            },
+            {
+              "path": "references/cdk-project-setup.md",
+              "sha256": "fd4f1abc8eefda5309521afe08f55979e44af8f461bc2e1b23f974d8588f21a2",
+              "bytes": 11649
+            },
+            {
+              "path": "references/cdk-serverless-patterns.md",
+              "sha256": "83786a4eb1cd0ff8853127e554510eaa08ccbfe76b43c13ad64aa160a8d990dc",
+              "bytes": 4547
+            },
+            {
+              "path": "references/sam-cdk-coexistence.md",
+              "sha256": "72d66d45ba7f2f3b147ee37449f86fd8628b1d0a48cc6dea4a47c57995f85254",
+              "bytes": 2737
+            },
+            {
+              "path": "references/sam-project-setup.md",
+              "sha256": "5836bf04158a90148c1f8ef7fb7e300b23b89e135cdefe8caf54185a49e6585a",
+              "bytes": 13354
+            }
+          ],
+          "excludedNonDocFiles": 0
+        }
+      ]
+    },
+    {
+      "id": "google-cloud-skills",
+      "cloud": "gcp",
+      "label": "Google Agent Skills (Cloud)",
+      "repo": "google/skills",
+      "commit": "67c4dbc8ff6313ef117d938e53bb21315fc281ae",
+      "license": "Apache-2.0",
+      "distribution": "vendored",
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        }
+      ],
+      "skills": [
+        {
+          "name": "compute-vm-creation",
+          "sourcePath": "skills/cloud/compute-vm-creation",
+          "topics": [
+            "compute",
+            "gpu"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "5052ec700ac2ce927f587d54fb01005d8d1373c86489f67407de434ed2fe490f",
+              "bytes": 32403
+            },
+            {
+              "path": "references/attribution.md",
+              "sha256": "3f6565f81f6cecdf880c2328edc29f3d477ab438591d8fa8cc82adf4b15f07bd",
+              "bytes": 1937
+            },
+            {
+              "path": "references/templates.md",
+              "sha256": "cddf815d77cf300aa8822ea82dbe1dfa0fe3b8a9d6a37452fdc7dab33db7776b",
+              "bytes": 15693
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "compute-spot-capacity-advice",
+          "sourcePath": "skills/cloud/compute-spot-capacity-advice",
+          "topics": [
+            "compute",
+            "gpu",
+            "cost"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "90e254a8a8799dabe2738ab0ceaed74d76f1e111fd32963adcd14822081490e2",
+              "bytes": 11417
+            },
+            {
+              "path": "references/attribution.md",
+              "sha256": "6213fec3ecfeeef689e63e70236f57f7d05ee6017aca19cb9dedde27ce18848a",
+              "bytes": 1819
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "google-cloud-recipe-auth",
+          "sourcePath": "skills/cloud/google-cloud-recipe-auth",
+          "topics": [
+            "identity"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "3415b14510b1b32a25a04233d2e81b2c8f4a923e4a40486f5b6fe5a4439afa54",
+              "bytes": 12754
+            },
+            {
+              "path": "references/attribution.md",
+              "sha256": "088a215373cfef7827688fc5f1e99c902d24616614cb978c0b0abf172480fb86",
+              "bytes": 1912
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "iam-helper-for-troubleshooting",
+          "sourcePath": "skills/cloud/iam-helper-for-troubleshooting",
+          "topics": [
+            "identity"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "bf2b1bc1137bb7f4d81173f69d3771b11e99af60f2c0bb3a8c26bf152086fac8",
+              "bytes": 5575
+            },
+            {
+              "path": "references/attribution.md",
+              "sha256": "a883fbfe39f2b7112c0a47aaab7a725298812777412d190fb226dcdbfb4a9aab",
+              "bytes": 1938
+            },
+            {
+              "path": "references/guardrails.md",
+              "sha256": "aac6d2a95f63aa5663c8d4a015044487a2bd2c7062c4f3059ade7993eee57d59",
+              "bytes": 3515
+            },
+            {
+              "path": "references/mcp-usage.md",
+              "sha256": "5c96ea17756ba772bd5f7b5280f96567c045f147f599b27b14ac5b23e5e6e793",
+              "bytes": 3106
+            },
+            {
+              "path": "references/requester.md",
+              "sha256": "42f57b1b38d1176e029f09f385b59dc6f1e9a90aa45f2f1b6703273ba0ca7c4b",
+              "bytes": 6673
+            },
+            {
+              "path": "references/resolver.md",
+              "sha256": "f4fb19f25db10438f2481d9240def682b3bff5d2d7848b9c324858d059f196d6",
+              "bytes": 14239
+            }
+          ],
+          "excludedNonDocFiles": 2
+        },
+        {
+          "name": "gcloud",
+          "sourcePath": "skills/cloud/gcloud",
+          "topics": [
+            "cli"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "a16e7688f5b64c155b2d8ca452f9196df259ef1bd3c0a35f23e4a5f941eb037b",
+              "bytes": 15594
+            },
+            {
+              "path": "references/attribution.md",
+              "sha256": "eb1fd36307c413d79d6030ff26f835c75f2f064f52d3277c8bad8d71acf72141",
+              "bytes": 2425
+            },
+            {
+              "path": "references/cli-usage.md",
+              "sha256": "7a8b5b2499a02cb397d1064663616d21c338c4b2a6fc6eeb77a6de749fc33e1b",
+              "bytes": 4880
+            },
+            {
+              "path": "references/mcp-usage.md",
+              "sha256": "04645f54167f5cd917baa2e5caab91a9db9f56451fef7145c1361cc7e050f5b1",
+              "bytes": 7931
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "google-cloud-waf-cost-optimization",
+          "sourcePath": "skills/cloud/google-cloud-waf-cost-optimization",
+          "topics": [
+            "cost"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "d8a60befc391e24616e7dac371e1ccfd2ecb38b1c207bef3428f155bdb84f1d7",
+              "bytes": 10767
+            },
+            {
+              "path": "references/attribution.md",
+              "sha256": "059c519444633804d501d36afb92cccdebebcd69a257abec052b75f6f36eae5a",
+              "bytes": 1950
+            }
+          ],
+          "excludedNonDocFiles": 0
+        }
+      ]
+    },
+    {
+      "id": "azure-skills",
+      "cloud": "azure",
+      "label": "Azure Skills (Microsoft)",
+      "repo": "microsoft/azure-skills",
+      "commit": "968f7bfaa01672e782dae2c6bab4fb9505ae047a",
+      "license": "MIT",
+      "distribution": "vendored",
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "8a5d8efb70942e65032f930c761d097feeb41a7517ebd04c9d2e4ec3764071c5"
+        }
+      ],
+      "skills": [
+        {
+          "name": "azure-compute",
+          "sourcePath": "skills/azure-compute",
+          "topics": [
+            "compute",
+            "gpu",
+            "cost"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "a628ba7b4ed8aee7eb7a559b99f776a909bd6d7cac0f6a3fc19053a42d5ee60f",
+              "bytes": 2619
+            },
+            {
+              "path": "references/retail-prices-api.md",
+              "sha256": "b13dab56ece4e0388c6d0798093fb13f25d773bb43c71bfcb4ff77baa9a53514",
+              "bytes": 6439
+            },
+            {
+              "path": "references/vm-families.md",
+              "sha256": "4bd692efdd3d5e79c0b930b49e8ac58a970e34c6e56d0b49137f9b0ffeaccfd0",
+              "bytes": 5942
+            },
+            {
+              "path": "references/vm-quotas.md",
+              "sha256": "fecd3425f5de561ce7e2658ae8450c49953b380745fa45f14b0a8c6e33875d1a",
+              "bytes": 4191
+            },
+            {
+              "path": "references/vmss-guide.md",
+              "sha256": "dc71cfc7809c72f95ef36a37d086ed8f55d59d977a23eaba41423ae473da7c1a",
+              "bytes": 6348
+            },
+            {
+              "path": "workflows/capacity-reservation/capacity-reservation.md",
+              "sha256": "22a5796f73e302c86e72c5c03fe361f29083943700b00b709778976e0a8d23bf",
+              "bytes": 7971
+            },
+            {
+              "path": "workflows/capacity-reservation/references/association-disassociation.md",
+              "sha256": "a4a66d61870b13b91be7e008161f6a293509692aa3f8695ea1f19b9b6b73505d",
+              "bytes": 3908
+            },
+            {
+              "path": "workflows/capacity-reservation/references/capacity-reservation-overview.md",
+              "sha256": "7d0b2db6aa1d2abfec64bc2c5353f10f000232c4dcda6ac9db11bfccae0c32e3",
+              "bytes": 6108
+            },
+            {
+              "path": "workflows/essential-machine-management/essential-machine-management.md",
+              "sha256": "2a86c0d56a18d81079b2eac5c77cd1bae4a9a7502bd3ac2607721bfbfaf5ab38",
+              "bytes": 5101
+            },
+            {
+              "path": "workflows/essential-machine-management/references/emm-enable-flow-portal-guidance.md",
+              "sha256": "a078c60506f03ced96feee1b9ba27c7a70891c4647901e2f6f2983cb52f721c8",
+              "bytes": 3140
+            },
+            {
+              "path": "workflows/essential-machine-management/references/emm-enable-flow.md",
+              "sha256": "c0dce7524821e8d7195974b465a3d6b5ae439535c5d4b543c76e7ff98d3db3c1",
+              "bytes": 9429
+            },
+            {
+              "path": "workflows/essential-machine-management/references/emm-overview.md",
+              "sha256": "449ab4318200471bcd5bd2014452a708d4fb03c205ecded0f646055d4cc94477",
+              "bytes": 2442
+            },
+            {
+              "path": "workflows/essential-machine-management/references/emm-prerequisites.md",
+              "sha256": "e35227c1b7d0c7e388a591841fcf88900b4a68fe01645631dbc0172ea486bb15",
+              "bytes": 3544
+            },
+            {
+              "path": "workflows/vm-creator/examples/bicep/README.md",
+              "sha256": "61a52989ee67dfe4ee30aeb88a06bd15460d3d61d9f1101f3d0d58c19d1e4852",
+              "bytes": 1681
+            },
+            {
+              "path": "workflows/vm-creator/examples/terraform/README.md",
+              "sha256": "286defa0df7529408c9989fc2e2648a33592b678d7bc2df8f1032c5beb6f37b6",
+              "bytes": 2562
+            },
+            {
+              "path": "workflows/vm-creator/references/delivery-options/github-pr.md",
+              "sha256": "4e60e5a4d2d1e1510117f0d6aed83c780c3c38e7fa14877f47a6fe5bdb38542b",
+              "bytes": 3289
+            },
+            {
+              "path": "workflows/vm-creator/references/delivery-options/index.md",
+              "sha256": "2af4e425c281138aee886bee0bc4a43337465c46fa95f96ffcca7a34e517f357",
+              "bytes": 2326
+            },
+            {
+              "path": "workflows/vm-creator/references/delivery-options/print.md",
+              "sha256": "8bc3b97602c1de40a639b6e4d323788b4efaa93a086ee405fb888bccc5ea34c6",
+              "bytes": 474
+            },
+            {
+              "path": "workflows/vm-creator/references/delivery-options/save-local.md",
+              "sha256": "c9d4da97a12ad8930648d7b06a3de52038a2724b13b82632ad9cbae34c17a3dd",
+              "bytes": 2045
+            },
+            {
+              "path": "workflows/vm-creator/references/depth-probe/beginner.md",
+              "sha256": "12ebbebf980cebd760e54a45c5595cb1bd2c14aed3f758a836f2e10ffc1da70c",
+              "bytes": 1214
+            },
+            {
+              "path": "workflows/vm-creator/references/depth-probe/cost-deep.md",
+              "sha256": "0ce8ded123259950c3a9a4f8c066c2bd9d2286c6337fd3da6adfa3de87715dc3",
+              "bytes": 1150
+            },
+            {
+              "path": "workflows/vm-creator/references/depth-probe/index.md",
+              "sha256": "420e024b29d6e0c578fa7e63b132d3d07db4237c7a71d5a6dbd439215c3b2e3a",
+              "bytes": 3043
+            },
+            {
+              "path": "workflows/vm-creator/references/depth-probe/networking-deep.md",
+              "sha256": "678c3a34246006d3f49fe7e210c5994bdc08c6953c06407c3889619c13013faf",
+              "bytes": 1623
+            },
+            {
+              "path": "workflows/vm-creator/references/depth-probe/security-deep.md",
+              "sha256": "ae3933894f80669b0e0f50d5abad6cc8ef8bdae032cbe35e07198cdb21b83eae",
+              "bytes": 1270
+            },
+            {
+              "path": "workflows/vm-creator/references/depth-probe/spec-deep.md",
+              "sha256": "8f9b4b7d6d87ff2c935b965b90b1079e441aa6c9f76594593c34f7646d471e24",
+              "bytes": 1377
+            },
+            {
+              "path": "workflows/vm-creator/references/mcp-tools.md",
+              "sha256": "2484829f5c8ec98688b2655b9a91eb15f750be8084c6cf6157bc46ec57a3ad94",
+              "bytes": 2329
+            },
+            {
+              "path": "workflows/vm-creator/references/output-adapters/az-cli.md",
+              "sha256": "c46fa551183cfcd513fb16a4afa4f4e4c652e4bb0ed3a775dd552cb213990415",
+              "bytes": 1948
+            },
+            {
+              "path": "workflows/vm-creator/references/output-adapters/bicep.md",
+              "sha256": "ab54837a3cde78093ebb59875c0cb1f471c57ee786d8b7d417f808cf94b56439",
+              "bytes": 1760
+            },
+            {
+              "path": "workflows/vm-creator/references/output-adapters/index.md",
+              "sha256": "4988ad66bb68f65fba3065605fec7a420aaba17cd4febb0e11653cbcc89f542a",
+              "bytes": 3053
+            },
+            {
+              "path": "workflows/vm-creator/references/output-adapters/mcp-apply.md",
+              "sha256": "59cb44002fd71b491bda7dae0d89e5839406233050dfbb26ad109e076ec4184b",
+              "bytes": 2649
+            },
+            {
+              "path": "workflows/vm-creator/references/output-adapters/terraform.md",
+              "sha256": "03949c52853729035ac818602b06e43c3e09f3a7dec12eaa50e83e305ae6d659",
+              "bytes": 1555
+            },
+            {
+              "path": "workflows/vm-creator/references/plan-card.md",
+              "sha256": "d341805afbe74ed228985af843c4520371677599af5c69d4ddfec06049ef52e4",
+              "bytes": 4015
+            },
+            {
+              "path": "workflows/vm-creator/references/validation-gates.md",
+              "sha256": "d4a0fd3342cf05c740d20403ea70f13323c27cab83412ec61a6e2c38f5718c6b",
+              "bytes": 2225
+            },
+            {
+              "path": "workflows/vm-creator/vm-creator.md",
+              "sha256": "b6fad93d59ed7ea150b0fffdee2b224785b9b0928a9e0777e912e74128254e2b",
+              "bytes": 7681
+            },
+            {
+              "path": "workflows/vm-recommender/references/handoff-to-creator.md",
+              "sha256": "faf843cffa7ad5770998940e953930fc88b67447a7b6e50047e3e2ac5ce24688",
+              "bytes": 1684
+            },
+            {
+              "path": "workflows/vm-recommender/references/web-fetch-policy.md",
+              "sha256": "741bc6ee5c542502412e75770a3abb1df79ccc80a32c9bdf15a5e233bf6d53e7",
+              "bytes": 1661
+            },
+            {
+              "path": "workflows/vm-recommender/vm-recommender.md",
+              "sha256": "65609d5a1d6adaf6758964ffcec14d9619942fc38845bddffd5d8599de130aa5",
+              "bytes": 6586
+            }
+          ],
+          "excludedNonDocFiles": 4
+        },
+        {
+          "name": "azure-quotas",
+          "sourcePath": "skills/azure-quotas",
+          "topics": [
+            "compute",
+            "gpu"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "82ac42524b655f947bdd6bbd6b86a670145d296a3447555f510e37ea2d377733",
+              "bytes": 12065
+            },
+            {
+              "path": "references/advanced-commands.md",
+              "sha256": "8dedb79dd9ed6468bbec7a92f4dadfd9d87e794317424818ba1c635250b6dfed",
+              "bytes": 1814
+            },
+            {
+              "path": "references/commands.md",
+              "sha256": "8c5d3df832a20322ed8e94be757ef2fe49fdd39a781aaddd69fe5b6867a3a627",
+              "bytes": 10619
+            }
+          ],
+          "excludedNonDocFiles": 2
+        },
+        {
+          "name": "entra-app-registration",
+          "sourcePath": "skills/entra-app-registration",
+          "topics": [
+            "identity"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "8f8e7b7429b04c3150c7393997d6ccd433defd497ad22a7e43979cc43e309c32",
+              "bytes": 8223
+            },
+            {
+              "path": "references/api-permissions.md",
+              "sha256": "e9ac672e8bdd4e689e4bdb11a272d125e3a4008ff95dd16c3285175753a80e68",
+              "bytes": 10198
+            },
+            {
+              "path": "references/auth-best-practices.md",
+              "sha256": "34f6fe88e2b5819c1a0f24aa3930a060d9504fee68ea4b363f0912a78daa5396",
+              "bytes": 6207
+            },
+            {
+              "path": "references/cli-commands.md",
+              "sha256": "c6c7881bcd6c9710fd71f54413077109f455cd2a1ba0d233652410f72f56ad24",
+              "bytes": 8852
+            },
+            {
+              "path": "references/console-app-example.md",
+              "sha256": "f4eef7238d9e3c5f09de4c49c7fc47da398a9d4ef6876cd29b3c1efa0a41eee4",
+              "bytes": 11005
+            },
+            {
+              "path": "references/first-app-registration.md",
+              "sha256": "4db5c564eb3d61468f39d05c98e0e91940cb8912aeb25023b2cf09d8176a84ed",
+              "bytes": 7415
+            },
+            {
+              "path": "references/oauth-flows.md",
+              "sha256": "24e7f2d19c39ef1f6a1b20de86f6ab901195eb66bde3785d9e2798165990b0c7",
+              "bytes": 9540
+            },
+            {
+              "path": "references/sdk/azure-identity-dotnet.md",
+              "sha256": "57aa33fc39d9e57bb7ca03d7de04efc064406237a52dc11b3ab4c7eb58240771",
+              "bytes": 940
+            },
+            {
+              "path": "references/sdk/azure-identity-java.md",
+              "sha256": "56a0255fb7c54c371d29df6e282b46668f0abbe0d46370ccc75d643883d29ccb",
+              "bytes": 1248
+            },
+            {
+              "path": "references/sdk/azure-identity-py.md",
+              "sha256": "2b2413f9398bef770085a6db2bbf042d3be4569345f8b7da9286107517ac2528",
+              "bytes": 1148
+            },
+            {
+              "path": "references/sdk/azure-identity-rust.md",
+              "sha256": "59d1d971670247bba0f403d6a308403ca7c8541597dc5b802385eb74fb5949bc",
+              "bytes": 805
+            },
+            {
+              "path": "references/sdk/azure-identity-ts.md",
+              "sha256": "cbda94a98c58bb7a95d4fff9dffdbe7890cf59ac4f418dd307e3589b24090e73",
+              "bytes": 1144
+            },
+            {
+              "path": "references/sdk/azure-keyvault-py.md",
+              "sha256": "27f350103a537eeeadf57e88dc6159283313d1e01c803d2f547f4bc4047035bc",
+              "bytes": 1135
+            },
+            {
+              "path": "references/sdk/azure-keyvault-secrets-ts.md",
+              "sha256": "1245bf5652e351813290fee3e6d244b16aeba20f7c91ac62163a39743c4edccf",
+              "bytes": 1043
+            },
+            {
+              "path": "references/sdk/microsoft-azure-webjobs-extensions-authentication-events-dotnet.md",
+              "sha256": "33c98b6d5014a5ce4b99aad1aee231687e5771cf9691169888d0efd4c48e7ade",
+              "bytes": 1522
+            },
+            {
+              "path": "references/troubleshooting.md",
+              "sha256": "47527e8b887a83f89d6de6e25f12faa49a12f3b6e269063743eb11f0678857f3",
+              "bytes": 7594
+            }
+          ],
+          "excludedNonDocFiles": 1
+        }
+      ]
+    },
+    {
+      "id": "microsoft-learn-skills",
+      "cloud": "azure",
+      "label": "Microsoft Learn Agent Skills",
+      "repo": "MicrosoftDocs/Agent-Skills",
+      "commit": "9b16b5c7c7716949c83fc4bbdc448e0ada7f93a3",
+      "license": "CC-BY-4.0 (docs) / MIT (code)",
+      "distribution": "vendored",
+      "licenseFiles": [
+        {
+          "path": "LICENSE",
+          "sha256": "7183ef9749eb9b75e710a81a4c812a9405cc184f087500581a973e5929ac3f5e"
+        },
+        {
+          "path": "LICENSE-CODE",
+          "sha256": "91f7258203fd43ba6d6f7f72b644eaedee9e3430f035c053beb6f34052f045e2"
+        },
+        {
+          "path": "ThirdPartyNotices.md",
+          "sha256": "003243302b1b7e5d932d6b17424a418cd82f88047de46f47d59c07936d24f7bd"
+        }
+      ],
+      "skills": [
+        {
+          "name": "azure-virtual-machines",
+          "sourcePath": "skills/azure-virtual-machines",
+          "topics": [
+            "compute",
+            "gpu"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "c190b4cdf9d38caf682383699306a57dc716150464e4ff59ff708e8bd656bdf2",
+              "bytes": 67298
+            },
+            {
+              "path": "configuration.md",
+              "sha256": "645ad213663c1e46b2f76cdebe0fe4352ab1be19967339395589faa5fa0283c8",
+              "bytes": 19665
+            },
+            {
+              "path": "deployment.md",
+              "sha256": "c47385f6ea608ae98682ab16d4307365e1e24fb40a008f79b192f1f55f59983d",
+              "bytes": 4046
+            },
+            {
+              "path": "integrations.md",
+              "sha256": "5e525d2c30e81c78662729199c5c2ed6a838df151953516fe170a1ab5058a177",
+              "bytes": 7692
+            }
+          ],
+          "excludedNonDocFiles": 0
+        },
+        {
+          "name": "azure-cost-management",
+          "sourcePath": "skills/azure-cost-management",
+          "topics": [
+            "cost"
+          ],
+          "files": [
+            {
+              "path": "SKILL.md",
+              "sha256": "84ca2fd927f1947f7bd70252387c619bc7f1f8e4c7c9579f0f7dad9836568a4b",
+              "bytes": 25501
+            }
+          ],
+          "excludedNonDocFiles": 0
+        }
+      ]
+    }
+  ]
+}
