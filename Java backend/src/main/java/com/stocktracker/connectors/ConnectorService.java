@@ -18,7 +18,7 @@ import java.util.Set;
 
 /**
  * The one path every connector call takes, for panels and agents alike (Connectors roadmap §1):
- * linked? enabled? → cache → rate limit → call → record health. Also owns linking: fields are
+ * linked? enabled? → cache → call (each upstream request rate-limited) → record health. Also owns linking: fields are
  * tested live before they are saved, so a wrong key is rejected at the form, not at first use.
  */
 @Slf4j
@@ -131,7 +131,6 @@ public class ConnectorService {
         String message;
         boolean ok;
         try {
-            limiter.acquire(spec);
             message = c.test(context(spec, k -> Optional.ofNullable(merged.get(k))));
             ok = true;
         } catch (ConnectorException e) {
@@ -173,7 +172,6 @@ public class ConnectorService {
         String message;
         boolean ok;
         try {
-            limiter.acquire(c.spec());
             message = c.test(context(c.spec(), k -> store.field(id, k)));
             ok = true;
         } catch (ConnectorException e) {
@@ -213,7 +211,6 @@ public class ConnectorService {
 
         Instant now = clock.instant();
         try {
-            limiter.acquire(spec);
             Object data = tool.handler().call(context(spec, k -> store.field(connectorId, k)), a);
             cache.put(key, data, now, tool.cacheTtl());
             store.save(account(connectorId).withCall(now));
@@ -237,6 +234,6 @@ public class ConnectorService {
     }
 
     private ConnectorContext context(ConnectorSpec spec, java.util.function.Function<String, Optional<String>> fields) {
-        return new ConnectorContext(spec, fields, http, mapper);
+        return new ConnectorContext(spec, fields, http, mapper, () -> limiter.acquire(spec));
     }
 }

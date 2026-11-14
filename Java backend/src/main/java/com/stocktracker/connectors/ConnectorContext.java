@@ -24,13 +24,28 @@ public final class ConnectorContext {
     private final Function<String, Optional<String>> fields;
     private final HttpClient http;
     private final ObjectMapper mapper;
+    private final Runnable permit;
 
+    /** @param permit counts one upstream request against the connector's rate limits (may block briefly or throw) */
     public ConnectorContext(ConnectorSpec spec, Function<String, Optional<String>> fields,
-                            HttpClient http, ObjectMapper mapper) {
+                            HttpClient http, ObjectMapper mapper, Runnable permit) {
         this.spec   = spec;
         this.fields = fields;
         this.http   = http;
         this.mapper = mapper;
+        this.permit = permit == null ? () -> { } : permit;
+    }
+
+    /**
+     * Counts one upstream request against the rate limits. {@link #get} does this itself;
+     * connectors with their own transport (MCP) call it once per request they send.
+     */
+    public void acquirePermit() {
+        permit.run();
+    }
+
+    public ConnectorSpec spec() {
+        return spec;
     }
 
     public Optional<String> field(String key) {
@@ -62,6 +77,7 @@ public final class ConnectorContext {
 
     /** GET → body text; non-2xx statuses become {@link ConnectorException}s. */
     public String get(URI uri, Map<String, String> headers, String accept) {
+        acquirePermit();
         HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).GET();
         if (accept != null) b.header("Accept", accept);
         if (headers != null) headers.forEach(b::header);

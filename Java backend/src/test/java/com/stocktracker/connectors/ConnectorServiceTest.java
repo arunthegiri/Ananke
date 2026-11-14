@@ -192,6 +192,7 @@ class ConnectorServiceTest {
                     Map.of("type", "object", "properties", Map.of("q", Map.of("type", "string"))),
                     Duration.ofMinutes(10), (ctx, args) -> {
                         upstreamCalls.incrementAndGet();
+                        ctx.acquirePermit();
                         ctx.require("api_key");
                         if (args.path("q").asText().equals("boom")) throw ConnectorException.upstream("Fake source: upstream exploded");
                         return Map.of("echo", args.path("q").asText(""));
@@ -201,6 +202,7 @@ class ConnectorServiceTest {
         @Override
         public String test(ConnectorContext ctx) {
             upstreamCalls.incrementAndGet();
+            ctx.acquirePermit();
             if (!ctx.require("api_key").startsWith("good")) {
                 throw new ConnectorException(ConnectorException.Kind.AUTH, "Fake source rejected the key.");
             }
