@@ -19,9 +19,15 @@ npm run format       # Prettier (write)
 npm run test:visual        # Playwright suite (visual baselines + behavioural contracts)
 npm run test:visual:update # re-record baselines — review every diff
 npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions)
+npm run test:backend       # Java backend tests in Docker (Maven + Testcontainers; needs Docker running)
+npm run test:executor      # stdlib unittest for executor/executor.py (no SDK, no DB)
 ```
 
 To run against the Spring Boot backend: `VITE_API_BASE_URL=http://localhost:8080 npm run dev`.
+
+`test:backend` + `test:executor` are the **Phase 0 Copilot/LLM regression baseline** — offline
+(fake HTTP servers, scripted `LLMClient`, executor double) and they freeze current V1 behaviour,
+quirks included. The frozen contracts are listed in AGENTS.md ("Copilot V1 regression baseline").
 
 **Building the Java backend:** there is no local Maven — it builds in Docker. There are also *two*
 `docker-compose.yml` files (repo root and `Java backend/`), so always be explicit or a bare

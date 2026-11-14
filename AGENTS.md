@@ -22,7 +22,15 @@ npm run format       # Prettier (write)
 npm run test:visual        # Playwright visual + behavioural suite (build doc §2 harness)
 npm run test:visual:update # …re-record baselines (review every diff in the PR)
 npm run test:unit          # plain-node unit tests: chart theme, calendar, correlation, distributions
+npm run test:backend       # Java backend tests (JUnit + Testcontainers) via maven:3.9-eclipse-temurin-17 in Docker
+npm run test:executor      # stdlib unittest for executor/executor.py
 ```
+
+There is no local Maven: `test:backend` mounts `Java backend/` and `~/.m2` into a Maven container
+and hands it the host Docker socket so Testcontainers can start `postgres:16-alpine`
+(`TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` lets the containerised JVM reach it). Run it
+from the repo root. Surefire prints "Surefire is going to kill self fork JVM … 30 seconds after
+System.exit(0)" at the end — pre-existing, harmless, the build still reports SUCCESS.
 
 The visual harness stubs every `/api/*` call (`tests/visual/fixtures.ts`) and fails a test if any
 request escapes the stub set, so the suite never needs the Spring backend running. Beyond
@@ -239,6 +247,78 @@ Gotchas found while building it, all fixed but easy to reintroduce:
   `docker compose -f ./docker-compose.yml --project-directory . build stock-tracker`; a bare
   `docker compose` from the wrong cwd builds `javabackend-stock-tracker` and leaves the running
   `anake-stock-tracker` untouched, so fixes appear to have no effect.
+
+### Copilot V1 regression baseline (Phase 0)
+
+These contracts are **frozen by tests** as the regression baseline for Phase 1. A Phase 1 change
+that alters any of them must update the named test deliberately, in the same commit, and say why.
+Everything runs offline (`npm run test:backend`, `npm run test:executor`).
+
+| Test | Freezes |
+|---|---|
+| `service/CopilotResearchFixtureTest` | `runResearch` end to end: SSE event order, persisted rows, fallback, error paths |
+| `controller/CopilotControllerTest` | 503 JSON (`{message, status:503}`) before any stream opens when no provider is configured |
+| `service/AnthropicClientTest` | OpenAI ⇄ Anthropic translation (fake Messages API on a JDK `HttpServer`) |
+| `service/KimiClientTest` | `llm.*` over `kimi.*` precedence, keyless localhost, verbatim pass-through |
+| `service/ResolvingLLMClientTest`, `LlmProviderConfigTest` | preferred → fallback → none; `llm.provider` aliases; unknown provider throws |
+| `executor/test_executor.py` | `/execute` HTTP contract, timeout, chunked bodies |
+
+**SSE frames** (`CopilotDto.ResearchEvent`, one JSON object per `data:` frame,
+`{type, message, payload}`):
+
+| `type` | `message` | `payload` |
+|---|---|---|
+| `status` | progress text (`Analysing request…`, `Fetching <symbol as typed> price data…`, `Executing strategy in Jupyter…`, `Running backtest…`, `Analysing results…`) | `null` |
+| `code` | `Generated strategy` | the first fenced block's code, trimmed |
+| `backtest` | `Backtest complete` | `ApiDto.BacktestResultResponse` (camelCase, ISO-8601 `Instant`s; `id` = persisted row) |
+| `explanation` | `Analysis complete` | markdown string (omitted when the explanation call fails/blank) |
+| `done` | `Done` | `ResearchSummary {strategyName, symbol, backtestResultId, usedExportedResult}` (research) / `null` (chat) |
+| `error` | human-readable reason | `null` |
+| `token` | `null` | full chat answer (chat mode only — one frame, not streamed tokens) |
+
+Happy path order: `status, [status per tool call…], code, status, status, backtest, status,
+explanation, done`. Every failure ends the stream after a single `error` (no `done`):
+no code fence → `The model did not return a Python code block. Try rephrasing the request.`;
+executor failure → `Strategy code failed:\n` + stderr tail (1500 chars) or the executor's `error`
+when stderr is blank; nothing exported → `The script ran but no strategy was exported. …Output:\n`
++ stdout tail; LLM unavailable mid-run → the exception's root message. The emitter is always
+completed.
+
+**Persistence.** `k.export()` (via `POST /api/strategies` → `StrategyService.saveStrategy`) writes
+the strategy + an exported `backtest_results` row. For `rsi_crossover`/`ema_crossover`,
+`CopilotService` re-runs through the engine over the exported row's symbol/range and persists a
+**second** row (`interval='1Min'`) which carries `copilot_explanation` and whose id is in `done`.
+Any other type → `UnsupportedOperationException` → the exported row is used and annotated
+(`usedExportedResult: true`, one row).
+
+**Executor** (`executor/executor.py`): `POST /execute {code, timeout?}` →
+`200 {stdout, stderr, returncode}` for any completed run (non-zero exit is still 200);
+`400 {error}` for malformed JSON / missing `code`; `504 {"error":"Execution timed out after Ns"}`;
+`404 {"error":"Not found"}`; `GET /health` → `{status:"ok", port}`. Accepts chunked bodies.
+`JupyterExecutionService` maps non-2xx → `ExecutionResult.error("Executor returned HTTP <n>: <error>")`
+and `returncode != 0` → `success=false, error="Python exited with code <n>"` with stdout/stderr kept.
+
+**`LLMClient` contract.** `chat(messages, tools, maxTokens)` returns OpenAI shape regardless of
+provider: `choices[0].message.{role, content, tool_calls[{id, type:"function", function:{name,
+arguments: <JSON string>}}]}` and `choices[0].finish_reason` — the loop only branches on
+`"tool_calls"` vs anything else. `complete()` = system + user, no tools, returns content text.
+Empty `tools` are omitted from the request. Unusable provider → `LLMUnavailableException` (503 at
+the controller, `error` frame mid-stream). Anthropic: system turns joined with `\n\n` into
+top-level `system`; `stop_reason:"tool_use"` (or any `tool_use` block) → `tool_calls`, **every
+other stop reason → `"stop"`**; unparseable tool arguments → `{}` input.
+
+**Known V1 limitations (frozen, not endorsed):**
+- **Strategy name is scraped from stdout** (`Kairos '<name>' exported successfully`), falling back
+  to the first `name='…'` literal in the code — any `name=` (e.g. a column rename) can win.
+- **`usedExportedResult` fallback is silent-ish**: any engine exception (not only unsupported
+  types) falls back to the SDK's row; when the exported row lacks symbol/range the re-run is skipped.
+- The engine re-run window is the exported row's `[fromTs, toTs]`, not the user's request.
+- Anthropic `max_tokens` truncation is reported as `finish_reason:"stop"`, not `"length"`.
+- `KimiClient` does not treat `http://[::1]` as local (`URI.getHost()` keeps the brackets), so IPv6
+  loopback still needs a key.
+- A provider **401** escapes as `RestClientException` (JDK `HttpURLConnection` streaming-mode
+  `HttpRetryException`), not `LLMUnavailableException` — it surfaces as an `error` frame, never 503.
+- Chat mode emits the whole answer as one `token` frame; there is no token streaming.
 
 ### Chart architecture
 
