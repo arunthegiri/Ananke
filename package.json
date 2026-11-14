@@ -21,7 +21,8 @@
     "test:distribution": "node tests/pnl-distribution.test.mjs",
     "test:instruments": "node tests/instruments.test.mjs",
     "test:sessions": "node tests/session-calendar.test.mjs",
-    "test:unit": "npm run test:theme && npm run test:calendar && npm run test:correlation && npm run test:distribution && npm run test:instruments && npm run test:sessions"
+    "test:options": "node tests/options-greeks.test.mjs",
+    "test:unit": "npm run test:theme && npm run test:calendar && npm run test:correlation && npm run test:distribution && npm run test:instruments && npm run test:sessions && npm run test:options"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

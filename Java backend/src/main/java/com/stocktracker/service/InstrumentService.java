@@ -68,6 +68,14 @@ public class InstrumentService {
         return toResponse(registerEntity(InstrumentKey.parseOrThrow(rawKey)));
     }
 
+    /**
+     * The registered instrument for a key, registering it first if needed.
+     * For services that need the entity (bars, chains), not the DTO.
+     */
+    public Instrument resolve(String rawKey) {
+        return registerEntity(InstrumentKey.parseOrThrow(rawKey));
+    }
+
     /** Called when a symbol is tracked, so every tracked equity has an instrument row. */
     public void ensureEquity(String symbol) {
         InstrumentKey.parse(symbol).ifPresent(this::registerEntity);

@@ -75,6 +75,7 @@ public sealed interface InstrumentKey {
                 return Optional.empty(); // e.g. Feb 30
             }
             BigDecimal strike = new BigDecimal(m.group(6)).movePointLeft(3).stripTrailingZeros();
+            if (strike.scale() < 0) strike = strike.setScale(0); // 100, never 1E+2
             return Optional.of(new Option(key, m.group(1), expiry, m.group(5).charAt(0), strike));
         }
         m = FUTURE.matcher(key);

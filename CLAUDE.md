@@ -18,7 +18,7 @@ npm run format       # Prettier (write)
 
 npm run test:visual        # Playwright suite (visual baselines + behavioural contracts)
 npm run test:visual:update # re-record baselines — review every diff
-npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions, instruments, sessions)
+npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions, instruments, sessions, options)
 ```
 
 To run against the Spring Boot backend: `VITE_API_BASE_URL=http://localhost:8080 npm run dev`.
@@ -56,7 +56,7 @@ src/
   lib/event-calendar.ts, correlation.ts, pnl-distribution.ts ← pure feeds behind the §15 panels
   components/terminal/ ← the design system: TerminalPanel, tabs, PanelState, controls/, table/
   components/metrics/  ← §15 analysis panels (strategy table, universe ranking, correlation, …)
-  routes/           ← /, /data, /backtesting, /live, /metrics, /models (+ dev/controls, DEV-only)
+  routes/           ← /, /data, /options, /backtesting, /live, /metrics, /models (+ dev/controls, DEV-only)
   routeTree.gen.ts  ← AUTO-GENERATED — never edit
 ```
 
@@ -110,6 +110,11 @@ identically. Their tests mirror each other, so change both together. Futures nee
 suffix so a bare `ESZ26` can never be mistaken for a stock. Futures multipliers come only from the
 backend's `FuturesSpecs`, never a default.
 
+Market data is provider-routed per asset class (`marketdata/` in the backend). Today Alpaca supplies
+crypto bars and option chains. Option data on the free `indicative` feed is **delayed** and must be
+labelled as such: every market-data response carries a `mode`. Hosted real-time OPRA/CME display needs
+licensing (issue #8).
+
 ### Backend contract
 
 Responses are wrapped as `{ data: [...], count: N }` or `{ content: [...] }`; `apiFetch` unwraps
@@ -126,6 +131,7 @@ endpoint it is waiting on. Nothing blocks on backend work; nothing renders a bla
 | `VITE_WS_ENABLED` | unset (off) | `1` enables the hot path; off = polling, unchanged |
 | `VITE_JUPYTER_URL` | `http://localhost:8890` | JupyterLab URL for "Open in JupyterLab" |
 | `VITE_FRED_API_KEY` | unset | Optional: live FRED release dates supersede the maintained calendar |
+| `ALPACA_OPTIONS_FEED` (backend) | `indicative` | `opra` = real-time option quotes (paid Alpaca subscription) |
 
 ### Adding a new route
 

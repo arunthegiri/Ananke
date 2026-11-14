@@ -64,6 +64,34 @@ public class ApiDto {
         public record CryptoSpec(String base, String quote) {}
     }
 
+    /** One 1-minute bar from GET /api/bars (multi-asset P2). Volume is decimal for crypto. */
+    public record BarResponse(Instant time, String key, BigDecimal open, BigDecimal high, BigDecimal low,
+                              BigDecimal close, BigDecimal volume, BigDecimal vwap, Long tradeCount) {}
+
+    /**
+     * GET /api/bars envelope. Deliberately NOT {data,count}: the frontend's
+     * apiFetch would unwrap that and drop {@code source}/{@code mode}, and the
+     * mode is what tells the UI to label data as delayed.
+     */
+    public record BarsResponse(String key, String source, String mode, List<BarResponse> bars) {}
+
+    /** GET /api/options/expirations. */
+    public record OptionExpirationsResponse(String underlying, String source, List<String> expirations) {}
+
+    /** One row of GET /api/options/chain — a single contract. */
+    public record OptionContractResponse(
+            String key, String right, BigDecimal strike,
+            Double bid, Double ask, Long bidSize, Long askSize, Double last,
+            Long volume, Long openInterest, Double prevClose,
+            Double iv, Double delta, Double gamma, Double theta, Double vega, Double rho,
+            Instant quoteTime) {}
+
+    /** GET /api/options/chain. {@code mode} = DELAYED on Alpaca's free indicative feed. */
+    public record OptionChainResponse(
+            String underlying, String expiry, Double underlyingPrice,
+            String source, String feed, String mode, Instant asOf,
+            List<OptionContractResponse> contracts) {}
+
     /** Response payload for a single price record */
     @Data
     public static class PriceResponse {

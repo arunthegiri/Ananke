@@ -1,0 +1,9 @@
+{
+ "underlying": "AAPL",
+ "source": "alpaca-options",
+ "expirations": [
+  "2026-11-20",
+  "2026-11-27",
+  "2026-12-18"
+ ]
+}

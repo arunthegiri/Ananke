@@ -13,7 +13,16 @@ import { expect, test } from "./fixtures";
  * The mismatch is reported on the console, so the test reads the console.
  */
 
-const ROUTES = ["/", "/data", "/backtesting", "/live", "/metrics", "/models"];
+const ROUTES = [
+  "/",
+  "/data",
+  "/options",
+  "/options?u=AAPL",
+  "/backtesting",
+  "/live",
+  "/metrics",
+  "/models",
+];
 
 for (const route of ROUTES) {
   test(`no hydration mismatch on ${route}`, async ({ page }) => {
