@@ -22,7 +22,10 @@
     "test:unit": "npm run test:theme && npm run test:calendar && npm run test:correlation && npm run test:distribution && npm run test:sse",
     "test:sse": "node tests/sse.test.mjs",
     "test:backend": "docker run --rm -v \"$PWD/Java backend\":/app -v \"$HOME/.m2\":/root/.m2 -v /var/run/docker.sock:/var/run/docker.sock -e TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal -w /app maven:3.9-eclipse-temurin-17 mvn -q test",
-    "test:executor": "python3 -m unittest executor/test_executor.py"
+    "test:executor": "python3 -m unittest executor/test_executor.py",
+    "desktop:web": "ANANKE_TARGET=electron vite build",
+    "desktop:dev": "npm run desktop:web && node desktop/prepare-app.cjs && npm --prefix desktop start",
+    "desktop:dist": "npm run desktop:web && node desktop/prepare-app.cjs && npm --prefix desktop run dist"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
