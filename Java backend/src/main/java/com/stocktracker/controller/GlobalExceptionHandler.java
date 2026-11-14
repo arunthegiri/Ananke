@@ -73,9 +73,9 @@ public class GlobalExceptionHandler {
                 .body(new ApiDto.ErrorResponse(ex.getMessage(), 422));
     }
 
-    @ExceptionHandler(com.stocktracker.service.KimiClient.KimiUnavailableException.class)
+    @ExceptionHandler(com.stocktracker.service.LLMClient.LLMUnavailableException.class)
     public ResponseEntity<ApiDto.ErrorResponse> handleCopilotUnavailable(
-            com.stocktracker.service.KimiClient.KimiUnavailableException ex) {
+            com.stocktracker.service.LLMClient.LLMUnavailableException ex) {
         log.warn("Copilot unavailable: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.SERVICE_UNAVAILABLE)

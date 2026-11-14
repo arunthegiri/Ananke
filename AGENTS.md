@@ -167,11 +167,13 @@ Feature-flagged and backend-gated: with `VITE_WS_ENABLED` unset, `startRealtime(
 Ananke — it never reimplements it. Pipeline, all of it streamed to the browser as SSE:
 
 ```
-prompt → Kimi tool loop (list_symbols / search_symbols / add_symbol / get_price_data)
+prompt → LLM tool loop (list_symbols / search_symbols / add_symbol / get_price_data)
        → generated Python  → executor/executor.py in the JUPYTER container
        → k.export() POSTs back to /api/strategies  → BacktestEngineService re-run
-       → Kimi explanation  → stored on backest_results.copilot_explanation
+       → LLM explanation   → stored on backest_results.copilot_explanation
 ```
+
+"LLM" here is a swappable seam, not one vendor — see the BYOK bullet below.
 
 Why the pieces sit where they do:
 
@@ -195,6 +197,24 @@ Why the pieces sit where they do:
 - **The engine never persists.** `BacktestEngineService.run()` returns a DTO and saves nothing, so
   `StrategyService.persistRun()` writes the copilot's run and `attachExplanation()` stores the
   analysis against it.
+- **The LLM provider is bring-your-own-key, not hardcoded.** `CopilotService` depends on the
+  `LLMClient` interface, never a concrete client, and its tool loop is written once against the
+  OpenAI chat-completion wire shape (`choices[0].message`, `finish_reason`, `tool_calls[]`).
+  `KimiClient` (name is historical — it's a generic OpenAI-compatible implementation) serves that
+  shape directly, which means it also serves OpenAI, Groq, Together, DeepSeek, OpenRouter, and any
+  local model server exposing an OpenAI-compatible `/chat/completions` endpoint (Ollama, LM Studio,
+  vLLM, llama.cpp server, text-generation-webui, koboldcpp — swap providers with `LLM_BASE_URL`
+  alone, and leave `LLM_API_KEY` blank for a local server that doesn't check it).
+  `AnthropicClient` implements the same interface for Anthropic's Messages API, translating in both
+  directions at its own boundary: system-role turns become the top-level `system` string, an
+  assistant turn's `tool_calls` become `tool_use` content blocks, `role:"tool"` results become a
+  `tool_result` block inside a `user` message (consecutive results are merged into one user turn —
+  Anthropic expects all results for one assistant turn together), and the response's `content`
+  blocks / `stop_reason` are synthesized back into `choices[0].message` / `finish_reason` so
+  `CopilotService`'s loop never has to know which provider answered. `LlmProviderConfig` picks the
+  active `LLMClient` bean from `llm.provider` at startup — single global config (Ananke has no
+  user/tenant model yet), so adding real per-user BYOK later is a new resolver in that one class,
+  not a rewrite of the tool loop.
 - **Results are DB-backed.** `runHistory` in `backtesting.tsx` is in-memory and dies on reload;
   `/backtesting?tab=results&strategy=<name>` hydrates from `GET /api/strategies/{name}/results` and
   merges those rows behind the session's own, which is what makes a copilot run survive a refresh.
@@ -205,9 +225,13 @@ Gotchas found while building it, all fixed but easy to reintroduce:
   JSR-310 module and every `Instant` in the backtest payload fails to serialise — silently, as an
   `{"error":"serialisation failed"}` frame.
 - Return `SseEmitter` **directly** from the controller. Wrapping it in `ResponseEntity` produces
-  `No converter for SseEmitter`; the 503 for a missing key is thrown as
-  `KimiClient.KimiUnavailableException` and mapped in `GlobalExceptionHandler`.
-- Do not send `temperature` to Kimi — model `k3` rejects anything but `1`.
+  `No converter for SseEmitter`; the 503 for a missing/misconfigured provider is thrown as
+  `LLMClient.LLMUnavailableException` and mapped in `GlobalExceptionHandler` (`KimiClient` still has
+  a deprecated `KimiUnavailableException` subclass for source compatibility — nothing should throw
+  it anymore).
+- Do not send `temperature` when calling Kimi's `k3` model on the coding endpoint — it rejects
+  anything but `1`. `KimiClient` (the generic OpenAI-compatible `LLMClient`) deliberately omits it
+  entirely rather than special-casing one model.
 - The Python SDK posts **snake_case** `from_ts`/`to_ts`; `ApiDto.StrategyRequest` needs
   `@JsonAlias`, and the values are `str(pd.Timestamp)` ("2024-06-03 08:00:00+00:00"), which
   `Instant.parse` rejects — hence `StrategyService.parseFlexible`.
@@ -239,7 +263,7 @@ Backend endpoints currently implemented:
 - `GET /api/prices/{symbol}/range?from=&to=`
 - `GET /api/strategies`, `GET /api/strategies/{name}`, `POST /api/strategies/{name}/run`
 - `GET /api/strategies/{name}/results` (every persisted run — what the Results tab hydrates from)
-- `POST /api/copilot/research`, `POST /api/copilot/chat` (SSE; 503 when `KIMI_API_KEY` is unset)
+- `POST /api/copilot/research`, `POST /api/copilot/chat` (SSE; 503 when no LLM provider is configured — see `LLM_PROVIDER` below)
 - `GET /api/strategies/active`, `GET /api/account`, `GET /api/positions`, `GET /api/models`
 
 Waiting on the backend (each renders a §6 `PanelState kind="pending"` naming the exact endpoint, never a blank panel — decision D5):
@@ -265,10 +289,16 @@ Backend-side (`.env`, passed to `stock-tracker` by compose):
 
 | Var | Default | Purpose |
 |---|---|---|
-| `KIMI_API_KEY` | unset | Copilot LLM. Unset = `/api/copilot/*` answers 503 and the tab shows a config notice |
-| `KIMI_BASE_URL` | `https://api.moonshot.ai/v1` | OpenAI-compatible base URL |
-| `KIMI_MODEL` | `kimi-k2-0905-preview` | Model id |
+| `LLM_PROVIDER` | `openai_compatible` | `openai_compatible` or `anthropic` — see the BYOK bullet above |
+| `LLM_API_KEY` | unset | openai_compatible key. Blank is valid for a local server (Ollama, LM Studio, …) that doesn't check it |
+| `LLM_BASE_URL` | `https://api.moonshot.ai/v1` | Any OpenAI-compatible base URL — OpenAI, Kimi, Groq, Together, DeepSeek, OpenRouter, or `http://localhost:11434/v1` etc. for a local model |
+| `LLM_MODEL` | `kimi-k2-0905-preview` | Model id for the openai_compatible provider |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset / `https://api.anthropic.com` / `claude-sonnet-4-5` | Used only when `LLM_PROVIDER=anthropic` |
+| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | Legacy names — still read as fallbacks when the `LLM_*` vars above are unset |
 | `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where the Java container reaches `executor.py` |
+
+No provider configured (missing key for the selected `LLM_PROVIDER`) = `/api/copilot/*` answers 503
+and the tab shows a config notice.
 
 ### Open in JupyterLab
 

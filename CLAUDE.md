@@ -120,6 +120,20 @@ Two constraints shape it, and both are load-bearing:
 - The system prompt pins the real SDK contract — `get_data()` is positional (`from` is a Python
   keyword) and `k.run()` must precede `k.export()`. A generic LLM gets both wrong.
 
+**LLM provider is bring-your-own-key.** `CopilotService`'s tool loop is written once against the
+OpenAI chat-completion wire shape (`choices[0].message` / `finish_reason` / `tool_calls[]`) and
+talks only to the `LLMClient` interface, never a concrete client. `KimiClient` (name is historical)
+implements it directly — it's already OpenAI-shaped, so it also serves OpenAI, Groq, Together,
+DeepSeek, OpenRouter, and any local model server with an OpenAI-compatible `/chat/completions`
+endpoint (Ollama, LM Studio, vLLM, llama.cpp server, …), selected purely via `LLM_BASE_URL`.
+`AnthropicClient` implements the same interface by translating both directions at its own boundary
+(system-role turns → top-level `system`; tool calls/results → `tool_use`/`tool_result` content
+blocks; response `content`/`stop_reason` → synthesized `choices[0].message`/`finish_reason`) so
+nothing above it changes. `LlmProviderConfig` picks the active one from `llm.provider` — single
+global config, chosen once at startup; Ananke has no user/tenant model yet, so there is no
+per-request resolution. If a per-user BYOK story is ever needed, that class is the one that
+changes.
+
 See AGENTS.md for the executor's chunked-body requirement, the Kimi `temperature` restriction, and
 the `ObjectMapper`/`SseEmitter` traps.
 
@@ -151,9 +165,13 @@ Backend-side (root `.env`, passed to `stock-tracker` by compose):
 
 | Var | Default | Purpose |
 |---|---|---|
-| `KIMI_API_KEY` | unset | Copilot LLM. Unset = `/api/copilot/*` returns 503 and the tab explains why |
-| `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | OpenAI-compatible endpoint + model id |
+| `LLM_PROVIDER` | `openai_compatible` | `openai_compatible` or `anthropic` — picks the `LLMClient` bean |
+| `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` | Moonshot defaults | openai_compatible provider — any OpenAI-shaped endpoint (OpenAI, Kimi, Groq, local Ollama/LM Studio/vLLM/…). Blank key is fine for a local server |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset | anthropic provider — used only when `LLM_PROVIDER=anthropic` |
+| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | legacy names, still read as fallbacks when the `LLM_*` vars are unset |
 | `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where Java reaches the Python executor |
+
+Unset/misconfigured provider = `/api/copilot/*` returns 503 and the tab explains why.
 
 ### Adding a new route
 

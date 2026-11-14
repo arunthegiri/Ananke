@@ -49,7 +49,7 @@ public class CopilotService {
     private static final Pattern NAME_IN_CODE =
             Pattern.compile("name\\s*=\\s*['\"]([^'\"]+)['\"]");
 
-    private final KimiClient              kimi;
+    private final LLMClient                llm;
     private final JupyterExecutionService jupyter;
     private final StrategyService         strategyService;
     private final SymbolService           symbolService;
@@ -74,7 +74,7 @@ public class CopilotService {
     });
     private static final AtomicInteger THREAD_SEQ = new AtomicInteger();
 
-    public CopilotService(KimiClient kimi,
+    public CopilotService(LLMClient llm,
                           JupyterExecutionService jupyter,
                           StrategyService strategyService,
                           SymbolService symbolService,
@@ -82,7 +82,7 @@ public class CopilotService {
                           StockPriceService priceService,
                           ObjectMapper mapper) {
         this.mapper          = mapper;
-        this.kimi            = kimi;
+        this.llm             = llm;
         this.jupyter         = jupyter;
         this.strategyService = strategyService;
         this.symbolService   = symbolService;
@@ -283,7 +283,7 @@ public class CopilotService {
         emit(emitter, CopilotDto.ResearchEvent.status("Analysing results…"));
         String explanation;
         try {
-            explanation = kimi.complete(
+            explanation = llm.complete(
                     EXPLANATION_SYSTEM_PROMPT,
                     explanationPrompt(strategyName, outcome.result()),
                     2048);
@@ -382,7 +382,7 @@ public class CopilotService {
     /** Drives tool calls until the model answers, returning that final text. */
     private String runToolLoop(List<Map<String, Object>> messages, SseEmitter emitter) {
         for (int i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-            JsonNode root   = kimi.chat(messages, toolDefinitions(), MAX_TOKENS);
+            JsonNode root   = llm.chat(messages, toolDefinitions(), MAX_TOKENS);
             JsonNode choice = root.path("choices").path(0);
             JsonNode message = choice.path("message");
 

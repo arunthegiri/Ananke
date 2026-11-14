@@ -2,7 +2,7 @@ package com.stocktracker.controller;
 
 import com.stocktracker.dto.CopilotDto;
 import com.stocktracker.service.CopilotService;
-import com.stocktracker.service.KimiClient;
+import com.stocktracker.service.LLMClient;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,11 +20,11 @@ public class CopilotController {
     private static final long CHAT_TIMEOUT_MS     = 120_000L;
 
     private final CopilotService copilotService;
-    private final KimiClient     kimiClient;
+    private final LLMClient      llmClient;
 
-    public CopilotController(CopilotService copilotService, KimiClient kimiClient) {
+    public CopilotController(CopilotService copilotService, LLMClient llmClient) {
         this.copilotService = copilotService;
-        this.kimiClient     = kimiClient;
+        this.llmClient      = llmClient;
     }
 
     /**
@@ -58,9 +58,11 @@ public class CopilotController {
      * 503 (via GlobalExceptionHandler) rather than a stream that opens and dies.
      */
     private void requireCopilot() {
-        if (!kimiClient.isConfigured()) {
-            throw new KimiClient.KimiUnavailableException(
-                    "Copilot is unavailable: KIMI_API_KEY is not configured on the backend.");
+        if (!llmClient.isConfigured()) {
+            throw new LLMClient.LLMUnavailableException(
+                    "Copilot is unavailable: no LLM provider has credentials. Set ANTHROPIC_API_KEY "
+                    + "(anthropic) or LLM_API_KEY / KIMI_API_KEY (openai_compatible) in the project .env "
+                    + "and restart stock-tracker.");
         }
     }
 }
