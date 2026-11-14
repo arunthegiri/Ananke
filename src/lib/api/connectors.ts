@@ -34,9 +34,22 @@ export interface ConnectorField {
   hint: string | null;
 }
 
+/** JSON-schema subset the backend's ToolArgs emits. */
+export interface ToolParamSchema {
+  type?: "string" | "integer" | "number" | "boolean" | "array" | "object";
+  description?: string;
+  enum?: string[];
+  items?: { type?: string };
+}
+
 export interface ConnectorToolInfo {
   name: string;
   description: string;
+  parameters: {
+    type?: "object";
+    properties?: Record<string, ToolParamSchema>;
+    required?: string[];
+  };
 }
 
 export interface Connector {

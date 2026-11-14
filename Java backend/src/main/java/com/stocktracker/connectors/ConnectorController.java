@@ -27,7 +27,7 @@ public class ConnectorController {
     public record FieldView(String key, String label, String help, boolean secret, boolean optional,
                             String placeholder, boolean set, String hint) { }
 
-    public record ToolView(String name, String description) { }
+    public record ToolView(String name, String description, Map<String, Object> parameters) { }
 
     public record ConnectorView(String id, String name, String category, String licence, String description,
                                 String attribution, String homepage, List<FieldView> fields, List<String> limits,
@@ -100,7 +100,7 @@ public class ConnectorController {
         }).toList();
         List<String> limits = s.limits().stream()
                 .map(l -> l.permits() + " / " + RateLimiter.human(l.window())).toList();
-        List<ToolView> tools = c.tools().stream().map(t -> new ToolView(t.name(), t.description())).toList();
+        List<ToolView> tools = c.tools().stream().map(t -> new ToolView(t.name(), t.description(), t.parameters())).toList();
         return new ConnectorView(s.id(), s.name(), s.category().name(), s.licence().name(), s.description(),
                 s.attribution(), s.homepage(), fields, limits, tools, s.keyless(), service.isLinked(c), a.enabled(),
                 service.status(c).name(), a.linkedAt(), a.lastTestAt(), a.lastTestOk(), a.lastTestMessage(),

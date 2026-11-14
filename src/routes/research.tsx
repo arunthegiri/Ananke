@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useConnector, useConnectorCall } from "@/hooks/useConnectors";
+import { SourceExplorer } from "@/components/research/SourceExplorer";
 import type { ConnectorResult } from "@/lib/api/connectors";
 import {
   SEC_CONCEPTS,
@@ -37,6 +38,7 @@ const TABS = [
   { id: "insiders", label: "Insider trades" },
   { id: "financials", label: "Financials" },
   { id: "search", label: "Filing search" },
+  { id: "sources", label: "All sources" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -49,6 +51,9 @@ interface ResearchSearch {
   concept?: string;
   /** Full-text search query. */
   q?: string;
+  /** Sources tab: connector id and tool name. */
+  src?: string;
+  tool?: string;
 }
 
 const TICKER = /^[A-Z0-9.-]{1,10}$/;
@@ -65,6 +70,8 @@ export const Route = createFileRoute("/research")({
           ? s.concept
           : undefined,
       q: typeof s.q === "string" && s.q.trim() ? s.q.slice(0, 500) : undefined,
+      src: typeof s.src === "string" && /^[a-z0-9_]{2,32}$/.test(s.src) ? s.src : undefined,
+      tool: typeof s.tool === "string" && /^[a-z0-9_]{1,64}$/.test(s.tool) ? s.tool : undefined,
     };
   },
   head: () => ({ meta: [{ title: "Research — Ananke Trading" }] }),
@@ -115,7 +122,7 @@ function ResearchPage() {
           Load
         </Button>
         <span className="ml-auto text-[11px] text-text-muted">
-          SEC EDGAR · filings, insiders, financials. More sources arrive as connectors are linked.
+          SEC EDGAR · filings, insiders, financials · every other linked source under “All sources”
         </span>
       </form>
 
@@ -144,6 +151,10 @@ function ResearchBody({
   set: (p: Partial<ResearchSearch>) => void;
 }) {
   const { connector, isError, error, isLoading } = useConnector(SEC_CONNECTOR);
+
+  if (search.tab === "sources") {
+    return <SourceExplorer source={search.src} tool={search.tool} onSelect={set} />;
+  }
 
   if (isLoading) return <BodySkeleton />;
   if (isError || !connector) {

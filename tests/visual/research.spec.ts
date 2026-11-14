@@ -80,3 +80,26 @@ test("settings: SEC EDGAR lists its tools and sends the identity on Link & test"
   await expect(page.getByTestId("connector-message-sec_edgar")).toContainText("contact email");
   expect(sent).toEqual({ values: { identity: "just a name" } });
 });
+
+test("all sources: runs any linked tool from its schema and tables the result", async ({
+  page,
+}) => {
+  const { calls } = await stubLinkedSec(page);
+  await page.goto("/research?tab=sources&src=sec_edgar&tool=sec_edgar_filings");
+  await expect(page.getByTestId("source-explorer")).toBeVisible();
+  await expect(page.getByTestId("source-tool-sec_edgar_insider_trades")).toBeVisible();
+
+  // ticker is required: Run stays disabled until it's filled.
+  await expect(page.getByTestId("source-run")).toBeDisabled();
+  await page.getByTestId("source-arg-ticker").fill("AAPL");
+  await page.getByTestId("source-arg-limit").fill("3");
+  await page.getByTestId("source-run").click();
+
+  // Columns derived from the payload's first array (filings); URLs become links.
+  await expect(page.getByText("filings: 3 rows")).toBeVisible();
+  await expect(page.getByText("0001140361-26-042798")).toBeVisible();
+  expect(calls.at(-1)).toEqual({ tool: "sec_edgar_filings", args: { ticker: "AAPL", limit: 3 } });
+
+  await page.getByRole("button", { name: "Raw JSON" }).click();
+  await expect(page.getByTestId("source-json")).toContainText('"cik": "0000320193"');
+});
