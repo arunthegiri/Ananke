@@ -255,7 +255,8 @@ public abstract class RemoteMcpConnector implements Connector {
             for (UpstreamTool u : upstreamTools()) {
                 JsonNode live = out.get(u.upstream());
                 if (live != null) {
-                    List<String> drift = verifyAgainst(u, live);
+                    List<String> drift = new ArrayList<>(verifyAgainst(u, live));
+                    drift.removeIf(d -> localParams().stream().anyMatch(lp -> d.equals("unknown property " + lp)));
                     if (!drift.isEmpty()) log.warn("{} tool {} schema drift: {}", spec().id(), u.upstream(), drift);
                 }
             }
