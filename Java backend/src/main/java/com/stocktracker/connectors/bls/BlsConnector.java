@@ -60,7 +60,8 @@ public class BlsConnector implements Connector {
                     "Optional. Without a key BLS allows 25 queries a day and 10 years per query; a free key from "
                             + "data.bls.gov/registrationEngine raises that to 500 a day and 20 years, and adds series titles "
                             + "and % changes.", true, true, null)),
-            List.of(new RateLimit(40, Duration.ofSeconds(10)), RateLimit.perDay(500)));   // BLS: 50 per 10 s; 500/day with a key
+            List.of(new RateLimit(40, Duration.ofSeconds(10)), RateLimit.perDay(25)))   // BLS: 25/day without a key
+            .withKeyedLimits(List.of(new RateLimit(40, Duration.ofSeconds(10)), RateLimit.perDay(500)));   // 500/day with one
 
     static final Map<String, String> COMMON = commonSeries();
 
