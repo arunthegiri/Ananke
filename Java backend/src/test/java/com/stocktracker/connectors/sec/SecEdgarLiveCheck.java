@@ -58,5 +58,9 @@ class SecEdgarLiveCheck {
                 "{\"query\":\"\\\"tariff\\\"\",\"forms\":[\"8-K\"],\"from\":\"2026-10-01\",\"limit\":3}"));
         System.out.println("search: " + wide);
         assertThat((List<?>) wide.get("hits")).isNotEmpty();
+
+        Map<String, Object> brk = (Map<String, Object>) sec.holdings13f(ctx(), om.readTree("{\"filer\":\"1067983\",\"limit\":5}"));
+        System.out.println("13f: " + brk);
+        assertThat((List<?>) brk.get("holdings")).hasSize(5);
     }
 }

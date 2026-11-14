@@ -193,6 +193,28 @@ class SecEdgarConnectorTest {
     }
 
     @Test
+    void thirteenF_aggregatesSubManagers_andReadsPrefixedNamespaces() {
+        String plain = """
+                <informationTable xmlns="http://www.sec.gov/edgar/document/thirteenf/informationtable">
+                  <infoTable><nameOfIssuer>ALLY FINL INC</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>02005N100</cusip>
+                    <value>577211815</value><shrsOrPrnAmt><sshPrnamt>12561737</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt></infoTable>
+                  <infoTable><nameOfIssuer>ALLY FINL INC</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>02005N100</cusip>
+                    <value>128838056</value><shrsOrPrnAmt><sshPrnamt>2803875</sshPrnamt><sshPrnamtType>SH</sshPrnamtType></shrsOrPrnAmt></infoTable>
+                  <infoTable><nameOfIssuer>APPLE INC</nameOfIssuer><titleOfClass>COM</titleOfClass><cusip>037833100</cusip>
+                    <value>1000</value><shrsOrPrnAmt><sshPrnamt>10</sshPrnamt></shrsOrPrnAmt><putCall>Put</putCall></infoTable>
+                </informationTable>""";
+        Map<String, SecEdgarConnector.Position> p = SecEdgarConnector.parse13f(plain, "a");
+        assertThat(p).containsOnlyKeys("02005N100", "037833100:PUT");
+        assertThat(p.get("02005N100").value().toPlainString()).isEqualTo("706049871");
+        assertThat(p.get("02005N100").shares().toPlainString()).isEqualTo("15365612");
+
+        String prefixed = plain.replace("<informationTable xmlns=", "<ns1:informationTable xmlns:ns1=")
+                .replace("</informationTable>", "</ns1:informationTable>")
+                .replaceAll("<(/?)(infoTable|nameOfIssuer|titleOfClass|cusip|value|shrsOrPrnAmt|sshPrnamt|sshPrnamtType|putCall)>", "<$1ns1:$2>");
+        assertThat(SecEdgarConnector.parse13f(prefixed, "b")).containsOnlyKeys("02005N100", "037833100:PUT");
+    }
+
+    @Test
     void unknownTicker_isABadRequest_notAnOutage() {
         assertThatThrownBy(() -> sec.filings(ctx(IDENTITY), om.readTree("{\"ticker\":\"ZZZZZZ\"}")))
                 .isInstanceOf(ConnectorException.class)

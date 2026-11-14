@@ -160,7 +160,19 @@ public class SecEdgarConnector implements Connector {
                                 "ticker", str("Limit to one company"),
                                 "limit", intg("Max hits (1-50, default 20)")), List.of("query")),
                         Duration.ofMinutes(30), this::search,
-                        a -> "Searching EDGAR for " + a.path("query").asText("") + "…"));
+                        a -> "Searching EDGAR for " + a.path("query").asText("") + "…"),
+                new ConnectorTool(ID + "_13f_holdings",
+                        "An institution's latest 13F-HR holdings (US long equity positions, filed up to 45 days after "
+                                + "quarter end): top positions by value with portfolio weight, aggregated across its "
+                                + "sub-managers, plus the change versus the previous quarter (new, exited, added, trimmed). "
+                                + "Filer by ticker (e.g. BRK-B) or CIK number (e.g. 1067983 for Berkshire, 1350694 for Bridgewater).",
+                        schema(Map.of(
+                                "filer", str("Institution ticker or CIK number"),
+                                "limit", intg("Top N positions by value (1-100, default 25)"),
+                                "compare", Map.of("type", "boolean", "description", "Include change vs previous quarter (default true)")),
+                                List.of("filer")),
+                        Duration.ofHours(12), this::holdings13f,
+                        a -> "Reading the latest 13F for " + a.path("filer").asText("") + "…"));
     }
 
     // ── tools ────────────────────────────────────────────────────────────────
@@ -343,6 +355,158 @@ public class SecEdgarConnector implements Connector {
             hits.add(m);
         }
         return Map.of("query", q, "total", r.path("hits").path("total").path("value").asInt(hits.size()), "hits", hits);
+    }
+
+    // ── 13F ──────────────────────────────────────────────────────────────────
+
+    record Position(String issuer, String cusip, String titleOfClass, String putCall, java.math.BigDecimal value, java.math.BigDecimal shares) { }
+
+    Object holdings13f(ConnectorContext ctx, JsonNode args) {
+        String filer = args.path("filer").asText("").strip();
+        if (filer.isEmpty()) throw ConnectorException.badRequest("filer is required (ticker or CIK)");
+        int limit = clamp(args.path("limit").asInt(25), 1, 100);
+        boolean compare = !args.has("compare") || args.path("compare").asBoolean(true);
+        Company c = filer.matches("^\\d{1,10}$")
+                ? new Company(String.format("%010d", Long.parseLong(filer)), null, null)
+                : company(ctx, filer);
+        JsonNode s = ctx.getJson(URI.create(data + "/submissions/CIK" + c.cik() + ".json"), headers(ctx));
+        String name = s.path("name").asText(c.name());
+        List<Filing> f13 = recentFilings(s).stream().filter(f -> f.form().equals("13F-HR")).limit(2).toList();
+        if (f13.isEmpty()) throw ConnectorException.badRequest(name + " has no 13F-HR filing in its recent EDGAR history (only managers with $100M+ in US equities file).");
+        Company owner = new Company(c.cik(), c.ticker(), name);
+
+        Map<String, Position> now = positions(ctx, owner, f13.get(0));
+        java.math.BigDecimal total = now.values().stream().map(Position::value).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        List<Position> sorted = new ArrayList<>(now.values());
+        sorted.sort((a, b) -> b.value().compareTo(a.value()));
+
+        Map<String, Position> prev = compare && f13.size() > 1 ? positions(ctx, owner, f13.get(1)) : null;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Position p : sorted.subList(0, Math.min(limit, sorted.size()))) {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("issuer", p.issuer());
+            m.put("cusip", p.cusip());
+            m.put("class", p.titleOfClass());
+            if (p.putCall() != null) m.put("put_call", p.putCall());
+            m.put("value_usd", p.value());
+            m.put("shares", p.shares());
+            m.put("weight_pct", pct(p.value(), total));
+            if (prev != null) {
+                Position before = prev.get(key(p));
+                m.put("shares_prev", before == null ? null : before.shares());
+                m.put("change", before == null ? "NEW" : changeLabel(before.shares(), p.shares()));
+            }
+            rows.add(m);
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("filer", name);
+        out.put("cik", c.cik());
+        out.put("period", f13.get(0).reportDate());
+        out.put("filed", f13.get(0).filingDate().toString());
+        out.put("accepted_at", f13.get(0).acceptance());
+        out.put("total_value_usd", total);
+        out.put("positions", now.size());
+        out.put("holdings", rows);
+        if (prev != null) {
+            List<Map<String, Object>> exited = new ArrayList<>();
+            prev.values().stream().filter(p -> !now.containsKey(key(p)))
+                    .sorted((a, b) -> b.value().compareTo(a.value())).limit(15)
+                    .forEach(p -> {
+                        Map<String, Object> m = new LinkedHashMap<>();
+                        m.put("issuer", p.issuer());
+                        m.put("cusip", p.cusip());
+                        m.put("value_usd_prev", p.value());
+                        m.put("shares_prev", p.shares());
+                        exited.add(m);
+                    });
+            out.put("previous_period", f13.get(1).reportDate());
+            out.put("exited", exited);
+            out.put("new_positions", now.keySet().stream().filter(k -> !prev.containsKey(k)).count());
+        }
+        out.put("url", archiveBase(owner, f13.get(0)) + f13.get(0).primaryDocument());
+        out.put("note", "13F covers US-listed long equity, options and convertibles only — no shorts, cash or non-US holdings. "
+                + "Values are as of the period end; 'filed' is when it became public.");
+        return out;
+    }
+
+    /** One 13F's information table, aggregated by CUSIP + put/call across sub-managers. */
+    private Map<String, Position> positions(ConnectorContext ctx, Company c, Filing f) {
+        JsonNode idx = ctx.getJson(URI.create(archiveBase(c, f) + "index.json"), headers(ctx));
+        String table = null;
+        for (JsonNode item : idx.path("directory").path("item")) {
+            String n = item.path("name").asText("");
+            if (n.toLowerCase(Locale.ROOT).endsWith(".xml") && !n.equalsIgnoreCase("primary_doc.xml")) {
+                table = n;
+                break;
+            }
+        }
+        if (table == null) throw ConnectorException.upstream("13F " + f.accession() + " has no information table XML.");
+        String xml = ctx.get(URI.create(archiveBase(c, f) + table), headers(ctx), "application/xml");
+        return parse13f(xml, f.accession());
+    }
+
+    static Map<String, Position> parse13f(String xml, String accession) {
+        Document doc;
+        try {
+            DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+            dbf.setNamespaceAware(true);   // filers use both default and prefixed (ns1:) namespaces
+            dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            dbf.setExpandEntityReferences(false);
+            doc = dbf.newDocumentBuilder().parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception e) {
+            throw ConnectorException.upstream("13F " + accession + " information table is not readable XML.");
+        }
+        Map<String, Position> out = new LinkedHashMap<>();
+        NodeList rows = doc.getElementsByTagNameNS("*", "infoTable");
+        for (int i = 0; i < rows.getLength(); i++) {
+            Element r = (Element) rows.item(i);
+            String cusip = ns(r, "cusip");
+            if (cusip == null) continue;
+            String putCall = ns(r, "putCall");
+            java.math.BigDecimal value = dec(ns(r, "value"));
+            java.math.BigDecimal shares = dec(ns(r, "sshPrnamt"));
+            Position p = new Position(ns(r, "nameOfIssuer"), cusip.toUpperCase(Locale.ROOT), ns(r, "titleOfClass"),
+                    putCall == null ? null : putCall.toUpperCase(Locale.ROOT), value, shares);
+            out.merge(key(p), p, (a, b) -> new Position(a.issuer(), a.cusip(), a.titleOfClass(), a.putCall(),
+                    a.value().add(b.value()), a.shares().add(b.shares())));
+        }
+        return out;
+    }
+
+    private static String key(Position p) {
+        return p.cusip() + (p.putCall() == null ? "" : ":" + p.putCall());
+    }
+
+    private static String changeLabel(java.math.BigDecimal before, java.math.BigDecimal after) {
+        int cmp = after.compareTo(before);
+        if (cmp == 0) return "UNCHANGED";
+        if (before.signum() == 0) return "ADDED";
+        java.math.BigDecimal pct = after.subtract(before).multiply(java.math.BigDecimal.valueOf(100))
+                .divide(before, 1, java.math.RoundingMode.HALF_UP);
+        return (cmp > 0 ? "ADDED +" : "TRIMMED ") + pct.toPlainString() + "%";
+    }
+
+    private static java.math.BigDecimal pct(java.math.BigDecimal part, java.math.BigDecimal total) {
+        if (total.signum() == 0) return java.math.BigDecimal.ZERO;
+        return part.multiply(java.math.BigDecimal.valueOf(100)).divide(total, 2, java.math.RoundingMode.HALF_UP);
+    }
+
+    private static String ns(Element el, String local) {
+        NodeList n = el.getElementsByTagNameNS("*", local);
+        if (n.getLength() == 0) return null;
+        String s = n.item(0).getTextContent();
+        return s == null || s.isBlank() ? null : s.strip();
+    }
+
+    private static java.math.BigDecimal dec(String s) {
+        if (s == null) return java.math.BigDecimal.ZERO;
+        try {
+            return new java.math.BigDecimal(s.replace(",", ""));
+        } catch (NumberFormatException e) {
+            return java.math.BigDecimal.ZERO;
+        }
     }
 
     // ── EDGAR plumbing ───────────────────────────────────────────────────────
