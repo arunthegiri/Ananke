@@ -1,0 +1,911 @@
+{
+ "_recorded": "2026-11-14 from POST https://worldmonitor.app/mcp tools/list (unauthenticated, sessionless). 97 tools upstream; this keeps the allowlisted ones, the allowance tool and the non-read-only ones, verbatim except outputSchema (dropped for size).",
+ "jsonrpc": "2.0",
+ "id": 2,
+ "result": {
+  "tools": [
+   {
+    "name": "get_market_data",
+    "title": "Market quotes and commodity prices",
+    "description": "Return the seeded market snapshot: equity, commodity, crypto and Gulf-market quotes, sector performance with explicit valuation coverage, ETF flows and the Fear & Greed index; subscriptions also get SGE physical-vs-COMEX premiums and physical-divergence regimes, which a free account receives as `locked` with an upgradeUrl. Quotes stale after 30m. Brent/WTI: spot 4d; futures NYMEX breaks and CME energy holidays (2026–2027) plus 30m restart grace. Curated symbols only: symbols filters this snapshot, not arbitrary tickers. Seeded-cache read with no live fetch: weight 1 on API plans, included in the signed-in free allowance. Dedicated paid plans open or reuse one market panel allocation across filters; refresh with request_id starts a new one. API plans retain per-tool billing.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "symbols": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "Tickers to keep, e.g. [\"AAPL\",\"GC=F\",\"BTC\"]. Case-insensitive; matches equity/commodity/crypto/gulf quotes, physical-premium and divergence aliases (gold/XAU/GC=F, silver/XAG/SI=F), sector ETFs, and ETF-flow tickers. Omit for the full snapshot."
+      },
+      "asset_class": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "equity",
+         "commodity",
+         "crypto",
+         "sectors",
+         "etf",
+         "gulf",
+         "sentiment"
+        ]
+       },
+       "description": "Datasets to keep: equity (stock quotes), commodity (commodity quotes, physical premiums and divergence), crypto, sectors (sector performance), etf (ETF flows), gulf (Gulf-market quotes), sentiment (Fear & Greed). Omit for all."
+      },
+      "limit": {
+       "type": "number",
+       "description": "Cap each per-class quote list (stocks/commodities/crypto/gulf/sectors/ETF flows) to at most this many items (default 30, pass 0 for no cap)."
+      },
+      "refresh": {
+       "type": "boolean",
+       "description": "Reload the curated snapshot with one new paid panel allocation. Default false reuses the current market panel. Requires request_id; omit panel_request when refreshing."
+      },
+      "request_id": {
+       "type": "string",
+       "format": "uuid",
+       "description": "Client-generated UUID that names one refresh. Retries with the same ID reuse one paid allocation and its original expiry."
+      },
+      "panel_request": {
+       "type": "string",
+       "maxLength": 160,
+       "description": "panelRequest.token returned by an earlier paid opening of this tool. Reads the same curated panel with new filters without another allocation. API allowances do not accept it."
+      },
+      "summary": {
+       "type": "boolean",
+       "description": "Return counts + 3-item samples instead of full lists. Useful when you only need shape/size or want to budget context before drilling in."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Market quotes and commodity prices",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 1,
+     "ui": {
+      "resourceUri": "ui://worldmonitor/market-radar-v3.html"
+     },
+     "ui/resourceUri": "ui://worldmonitor/market-radar-v3.html",
+     "openai/toolInvocation/invoking": "Loading market data…",
+     "openai/toolInvocation/invoked": "Loaded market data",
+     "openai/toolInvocation": {
+      "invoking": "Loading market data…",
+      "invoked": "Loaded market data"
+     }
+    }
+   },
+   {
+    "name": "get_conflict_events",
+    "title": "Conflict and unrest events",
+    "description": "Return the seeded conflict snapshot: active armed-conflict events (UCDP and Iran tracker) and unrest events with coordinates, fatalities and dates, plus country risk scores. UCDP fetches expire after 7 hours, event content after 90 days; unrest after 2 hours. Event-level records; no narrative or forecasts. Seeded-cache read with no live fetch: weight 1 on API plans, included in the signed-in free allowance. country matches event country names and the alpha-2 code on risk scores; min_fatalities drops events below a count; limit caps each list (default 30, 0 for no cap). Dedicated paid connections reuse one panel allocation across openings and filters; refresh with request_id starts a new one; authorized panel_request reads report current usage when confirmed. API and free allowances retain per-tool billing and reject paid controls. bbox or lat/lon/radius_km limit the area, since_days the last N days; geo_filter counts rows lacking coordinates or dates.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "country": {
+       "type": "string",
+       "description": "Filter to one country — matches the country name on conflict/unrest events and the ISO 3166-1 alpha-2 region code on risk scores (case-insensitive)."
+      },
+      "min_fatalities": {
+       "type": "number",
+       "description": "Minimum deaths per event, counted as UCDP deathsBest or unrest fatalities. Events with fewer are dropped; risk scores are unaffected."
+      },
+      "limit": {
+       "type": "number",
+       "description": "Cap each event list to at most this many items (default 30, pass 0 for no cap)."
+      },
+      "panel_request": {
+       "type": "string",
+       "description": "panelRequest.token returned by an earlier paid opening of this tool. Re-reads that conflict panel with new filters without another daily allocation."
+      },
+      "refresh": {
+       "type": "boolean",
+       "description": "Request one new paid conflict panel allocation. Requires request_id and no panel_request."
+      },
+      "request_id": {
+       "type": "string",
+       "format": "uuid",
+       "description": "Client-generated UUID that names one paid refresh. Retrying with the same ID reuses that allocation instead of spending another."
+      },
+      "bbox": {
+       "type": "object",
+       "description": "Keep only events inside this box, given by its south-west and north-east corners in decimal degrees. sw_lon > ne_lon crosses the antimeridian. Use either bbox or lat/lon/radius_km, not both.",
+       "required": [
+        "sw_lat",
+        "sw_lon",
+        "ne_lat",
+        "ne_lon"
+       ],
+       "additionalProperties": false,
+       "properties": {
+        "sw_lat": {
+         "type": "number",
+         "minimum": -90,
+         "maximum": 90,
+         "description": "Latitude of the south-west corner, in decimal degrees (north positive); must not exceed ne_lat."
+        },
+        "sw_lon": {
+         "type": "number",
+         "minimum": -180,
+         "maximum": 180,
+         "description": "Longitude of the south-west corner, in decimal degrees (east positive)."
+        },
+        "ne_lat": {
+         "type": "number",
+         "minimum": -90,
+         "maximum": 90,
+         "description": "Latitude of the north-east corner, in decimal degrees (north positive)."
+        },
+        "ne_lon": {
+         "type": "number",
+         "minimum": -180,
+         "maximum": 180,
+         "description": "Longitude of the north-east corner, in decimal degrees (east positive)."
+        }
+       }
+      },
+      "lat": {
+       "type": "number",
+       "minimum": -90,
+       "maximum": 90,
+       "description": "Latitude of the search centre, in decimal degrees (north positive). Give lat, lon and radius_km together."
+      },
+      "lon": {
+       "type": "number",
+       "minimum": -180,
+       "maximum": 180,
+       "description": "Longitude of the search centre, in decimal degrees (east positive). Give lat, lon and radius_km together."
+      },
+      "radius_km": {
+       "type": "number",
+       "exclusiveMinimum": 0,
+       "maximum": 2000,
+       "description": "Search radius in kilometres around lat/lon, measured along the Earth's surface."
+      },
+      "since_days": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 365,
+       "description": "Look-back window in days: keep events dated within that many days of now. Omit to apply no date filter."
+      },
+      "summary": {
+       "type": "boolean",
+       "description": "Return counts + 3-item samples instead of full lists. Useful when you only need shape/size or want to budget context before drilling in."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Conflict and unrest events",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 1,
+     "ui": {
+      "resourceUri": "ui://worldmonitor/conflict-events-v2.html"
+     },
+     "ui/resourceUri": "ui://worldmonitor/conflict-events-v2.html",
+     "openai/toolInvocation/invoking": "Loading conflict events…",
+     "openai/toolInvocation/invoked": "Loaded conflict events",
+     "openai/toolInvocation": {
+      "invoking": "Loading conflict events…",
+      "invoked": "Loaded conflict events"
+     }
+    }
+   },
+   {
+    "name": "get_news_intelligence",
+    "title": "Threat news stories and signals",
+    "description": "Return the seeded threat-news feed as items, not a brief: AI-classified news stories, GDELT intelligence signals by topic, cross-source signals, physical-premium regime transitions included, and government security advisories. With no story filter, topStories is the 8 the dashboard selects worldwide. country, category, query, alerts_only and min_importance search every scored story of the latest run, ranked by importance; insights.storyScope reports what was searched. Stale after 30 minutes; live window only. Stories carry uniqueSourceCount, corroborationSourceCount, entityCorroboration, sourceTier, outlets, member headlines, credibilityScore (0-100 source reliability, distinct from importance) and the publishers roster; corroboration.state (single-publisher, tier4-only, corroborated, unknown) describes coverage, not accuracy. Seeded-cache read: weight 1 on API plans, in the signed-in free allowance. Paid panels charge one opening; repeats and filters reuse it.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "panel_request": {
+       "type": "string",
+       "maxLength": 160,
+       "description": "Server-issued closed News Intelligence panel token. Omit for a paid opening; repeat and filters reuse its original source snapshot."
+      },
+      "refresh": {
+       "type": "boolean",
+       "description": "Paid panel only. Explicitly open a new allocation without panel_request and with a UUID request_id."
+      },
+      "request_id": {
+       "type": "string",
+       "format": "uuid",
+       "description": "Client-generated UUID that names one refresh. Retrying with the same UUID reuses that allocation."
+      },
+      "topic": {
+       "type": "string",
+       "enum": [
+        "conflict",
+        "economy",
+        "cyber",
+        "nuclear",
+        "intelligence",
+        "maritime"
+       ],
+       "description": "GDELT signal topic to keep in gdelt-intel.topics. Stories, cross-source signals and advisories are not filtered by it. Omit for every topic."
+      },
+      "category": {
+       "type": "string",
+       "description": "Filter top news stories to one category (e.g. \"conflict\", \"economy\"; fallback is \"general\")."
+      },
+      "country": {
+       "type": "string",
+       "description": "Country to filter stories and travel advisories to, as an ISO 3166-1 alpha-2 or alpha-3 code or a country name. Matches any country named in a story headline, across every scored story of the latest run, not only the top 8. Unresolved inputs return Invalid params."
+      },
+      "alerts_only": {
+       "type": "boolean",
+       "description": "Keep only top stories flagged as alerts."
+      },
+      "query": {
+       "type": "string",
+       "description": "Keep only stories whose headline, primary source, or one of the first six clustered member headlines contains this text (case-insensitive substring), across every scored story of the latest run. This filters the LIVE news window only — it is not a historical index, so an event older than the current digest will not be found here. Use search_intel_history for that."
+      },
+      "min_importance": {
+       "type": "number",
+       "description": "Keep only top stories whose effectiveImportanceScore is at least this value. 0 is honoured as a real floor rather than treated as absent; a story carrying no score is excluded when this is set, never treated as scoring zero."
+      },
+      "limit": {
+       "type": "number",
+       "description": "Cap each list (top stories, signals, advisories) to at most this many items (default 30, pass 0 for no cap). Applied AFTER query and min_importance, so a capped list is drawn from the matches."
+      },
+      "stories_cursor": {
+       "type": "string",
+       "maxLength": 64,
+       "description": "Continue a story-filtered search from insights.storyScope.nextCursor, keeping the same filters. A page of matches is also bounded in size, so follow nextCursor until it is empty."
+      },
+      "summary": {
+       "type": "boolean",
+       "description": "Return counts + 3-item samples instead of full lists. Useful when you only need shape/size or want to budget context before drilling in."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Threat news stories and signals",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 1,
+     "ui": {
+      "resourceUri": "ui://worldmonitor/news-intelligence-v3.html"
+     },
+     "ui/resourceUri": "ui://worldmonitor/news-intelligence-v3.html",
+     "openai/toolInvocation/invoking": "Loading news intelligence…",
+     "openai/toolInvocation/invoked": "Loaded news intelligence",
+     "openai/toolInvocation": {
+      "invoking": "Loading news intelligence…",
+      "invoked": "Loaded news intelligence"
+     }
+    }
+   },
+   {
+    "name": "get_economic_data",
+    "title": "Rates, economic calendars and fuel prices",
+    "description": "Read cached rates, calendars and fuel prices with official-only 12-series China macro (no proxies, see launchReady). Includes Fed Funds (FRED), economic and official NBS/PBoC release calendars, fuel prices, ECB FX rates, Bank of Russia official rates (RUB per 1 unit of each listed currency, plus the CBR key policy rate), EU yield curves, US federal spending awards, earnings, COT positioning, BIS household debt service ratios, and BIS residential/commercial property prices. Optional China macro data has official-only 12-series; 5 NBS/SAFE ingestible, PBoC/GACC unavailable, no proxies; see launchReady/status. Retained values expose transportStatus and transportFailureReason independently. Requested datasets may be unavailable or stale; this tool reads cached data and does not fetch fresh upstream releases.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "dataset": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "fedfunds",
+         "econ-calendar",
+         "china-macro",
+         "china-release-calendar",
+         "fuel-prices",
+         "ecb-fx-rates",
+         "cbr-rates",
+         "yield-curve-eu",
+         "spending",
+         "earnings-calendar",
+         "cot",
+         "dsr",
+         "property-residential",
+         "property-commercial"
+        ]
+       },
+       "description": "Restrict the response to one or more sub-datasets. Omit for the full economic bundle."
+      },
+      "country": {
+       "type": "string",
+       "description": "Country to filter the country-keyed datasets (fuel-prices, BIS DSR/property, economic and China release calendars) to, as an ISO 3166-1 alpha-2 or alpha-3 code or a country name. china-macro is returned as null unless the country is China. Unresolved inputs return Invalid params."
+      },
+      "limit": {
+       "type": "number",
+       "description": "Cap each list dataset (calendar, spending, earnings) to at most this many items (default 30, pass 0 for no cap)."
+      },
+      "summary": {
+       "type": "boolean",
+       "description": "Return counts + 3-item samples instead of full lists. Useful when you only need shape/size or want to budget context before drilling in."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Rates, economic calendars and fuel prices",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 1
+    }
+   },
+   {
+    "name": "get_country_macro",
+    "title": "Country macroeconomic indicators",
+    "description": "Per-country macroeconomic indicators by dataset. IMF WEO, ~210 countries, latest year per series: macro (inflation, CPI, current account, government revenue, expenditure, primary balance), growth (real GDP growth, GDP per capita USD and PPP, savings and investment rates), labor (unemployment, population), external (current account USD, import/export volume changes; exportsUsd, importsUsd and tradeBalanceUsd are null since WEO retracted them in 2026-04). Eurostat, 27 EU members plus EA20 and EU27_2020: house-prices (annual index, 2015=100, 10-year series), gov-debt-q (quarterly gross debt, % of GDP, 8 quarters), industrial-production (monthly index excluding construction, 2021=100, 12 months). Seeded-cache read: weight 1 on API plans, included in the signed-in free allowance. Omit dataset for all seven; stale covers only the datasets read. countries takes ISO codes, names, EA20 or EU27_2020; limit caps each country map (default 30, 0 for no cap).",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "dataset": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "macro",
+         "growth",
+         "labor",
+         "external",
+         "house-prices",
+         "gov-debt-q",
+         "industrial-production"
+        ]
+       },
+       "description": "Restrict the response to one or more datasets. Omit for all seven."
+      },
+      "countries": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       },
+       "description": "ISO 3166-1 alpha-2 country codes to keep in every dataset (e.g. [\"US\",\"DE\",\"GR\"]); Greece is keyed EL in the Eurostat datasets. EA20 and EU27_2020 select the Eurostat aggregates. Omit for all. Country names and alpha-3 codes are accepted; unresolved inputs return Invalid params."
+      },
+      "limit": {
+       "type": "integer",
+       "minimum": 0,
+       "description": "Cap each dataset country map to at most this many entries when no countries filter is supplied (default 30, pass 0 for no cap)."
+      },
+      "summary": {
+       "type": "boolean",
+       "description": "Return counts + 3-item samples instead of full lists. Useful when you only need shape/size or want to budget context before drilling in."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Country macroeconomic indicators",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 1
+    }
+   },
+   {
+    "name": "get_price_and_debt_indicators",
+    "title": "Price and debt indicators",
+    "description": "Return the seeded price and debt indicator bundle: the Economist Big Mac index by country, the FAO Food Price Index and per-country national debt levels. Each sub-dataset has its own staleness budget (Big Mac a week, FAO and debt 60 days). No tariff rates. Seeded-cache read with no live fetch: weight 1 on API plans, included in the signed-in free allowance.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "dataset": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "bigmac",
+         "fao-ffpi",
+         "national-debt"
+        ]
+       },
+       "description": "Sub-datasets to return: bigmac (Economist Big Mac prices by country), fao-ffpi (FAO Food Price Index) or national-debt (debt by country). Omit for all three."
+      },
+      "country": {
+       "type": "string",
+       "description": "Country to filter the per-country datasets (Big Mac prices, national debt) to, as an ISO 3166-1 alpha-2 or alpha-3 code or a country name (e.g. \"US\", \"USA\", \"United States\"). Unresolved inputs return Invalid params."
+      },
+      "limit": {
+       "type": "number",
+       "description": "Cap each list dataset (BigMac countries, debt entries) to at most this many items (default 30, pass 0 for no cap)."
+      },
+      "summary": {
+       "type": "boolean",
+       "description": "Return counts + 3-item samples instead of full lists. Useful when you only need shape/size or want to budget context before drilling in."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Price and debt indicators",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 1
+    }
+   },
+   {
+    "name": "get_world_brief",
+    "title": "Hourly AI world news brief",
+    "description": "Return one written world brief, the hourly AI summary of top headlines rather than a story feed, from the precomputed news:insights:v1 snapshot. It reads the seeder's gated result (corroboration, citation and hallucination checks) with no request-time LLM call. Each headline pairs with an index-aligned topStories entry carrying its corroboration evidence (uniqueSourceCount, corroborationSourceCount, entityCorroboration, sourceTier, outlet names, the publishers roster, sourceProvenance per outlet); corroboration.state (single-publisher, tier4-only, corroborated, unknown) describes coverage, not accuracy. Past the 60-minute freshness window the last-known-good snapshot is served with stale:true and ageMinutes, capped at 3 h old; older, absent or broken snapshots are reported unavailable. Requires a paid plan; one downstream read, weight 2 on API plans. Paid MCP openings consume one request allocation that loaded reuse shares.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "geo_context": {
+       "type": "string",
+       "description": "Deprecated compatibility field; the precomputed global snapshot is not regenerated or refocused per request."
+      },
+      "refresh": {
+       "type": "boolean",
+       "description": "Dedicated paid MCP allowance only: true opens a new request allocation, keyed by request_id, instead of joining the shared five-minute one. Omitted or false joins the current shared allocation. Neither regenerates the precomputed brief."
+      },
+      "request_id": {
+       "type": "string",
+       "format": "uuid",
+       "description": "Caller-generated UUID naming one explicit refresh; required with refresh=true. Retrying with the same UUID reuses that allocation instead of opening another."
+      },
+      "panel_request": {
+       "type": "string",
+       "description": "The panelRequest.token returned by an earlier paid call of this tool (or supplied by the embedded view). Rereads the brief inside that allocation without opening a new one. When omitted, the call opens or joins an allocation. Do not combine with refresh."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      },
+      "response_mode": {
+       "type": "string",
+       "enum": [
+        "full",
+        "spoken"
+       ],
+       "description": "\"spoken\" returns 2-3 plain-language sentences for text-to-speech plus structured citations instead of the full payload; \"full\" (default) returns the documented shape."
+      },
+      "spoken_language": {
+       "type": "string",
+       "enum": [
+        "en",
+        "ar"
+       ],
+       "description": "Language of the spoken sentences, used only with response_mode \"spoken\": \"en\" (default) or \"ar\" (Modern Standard Arabic). Numbers stay in Western digits; headline and market titles keep their source language."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Hourly AI world news brief",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "subscription",
+     "worldmonitor/weight": 2,
+     "ui": {
+      "resourceUri": "ui://worldmonitor/world-brief-v2.html"
+     },
+     "ui/resourceUri": "ui://worldmonitor/world-brief-v2.html",
+     "openai/toolInvocation/invoking": "Loading the world brief…",
+     "openai/toolInvocation/invoked": "Loaded the world brief",
+     "openai/toolInvocation": {
+      "invoking": "Loading the world brief…",
+      "invoked": "Loaded the world brief"
+     }
+    }
+   },
+   {
+    "name": "get_country_risk",
+    "title": "Country instability score, advisory and sanctions",
+    "description": "Return the structured risk snapshot for one country: the Composite Instability Index at cii.combinedScore (0-100) with its four components under cii.components, the government travel-advisory level, and OFAC sanctions exposure as sanctionsActive and sanctionsCount. Index scores, advisory and sanctions fields only, read from the seeded risk cache in under a second: no narrative, no LLM, and no per-indicator resilience breakdown. upstreamUnavailable=true means a required upstream read failed and the whole response was withheld: zeroed fields are unknown, not calm. Requires a paid plan; one downstream fetch, weight 2 on API plans. On a dedicated Pro allowance a call shares the same-country panel allocation; refresh with request_id starts a new one. Read-only; idempotent within a cache window. history_days (1-90) adds ciiHistory: one UTC daily close per day, the change over the span, and methodology breaks.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "panel_request": {
+       "type": "string",
+       "maxLength": 160,
+       "description": "Same-country panel token: the panelRequest.token from an earlier paid call for this country, or supplied by the embedded view. Reads inside that allocation without opening a new one. When omitted on a dedicated paid allowance, the call opens or joins the shared five-minute allocation."
+      },
+      "refresh": {
+       "type": "boolean",
+       "description": "For a paid MCP allowance, start a new country allocation and reread loaded sources. Requires request_id and no panel_request. Does not force AI generation."
+      },
+      "request_id": {
+       "type": "string",
+       "format": "uuid",
+       "description": "Caller-generated id naming one explicit refresh; required with refresh=true. Retrying with the same id reuses that allocation instead of opening another."
+      },
+      "country_code": {
+       "type": "string",
+       "description": "ISO 3166-1 alpha-2 code (e.g. \"IQ\"), alpha-3 code (\"IRQ\"), or country name in any supported dashboard locale (e.g. \"Iraq\", \"العراق\", \"Deutschland\", \"中国\")"
+      },
+      "history_days": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 90,
+       "description": "Days of CII history to add as ciiHistory, one UTC daily close per day. Omit for no history. Missing days stay missing; only points on the current methodology count toward change."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      },
+      "response_mode": {
+       "type": "string",
+       "enum": [
+        "full",
+        "spoken"
+       ],
+       "description": "\"spoken\" returns 2-3 plain-language sentences for text-to-speech plus structured citations instead of the full payload; \"full\" (default) returns the documented shape."
+      },
+      "spoken_language": {
+       "type": "string",
+       "enum": [
+        "en",
+        "ar"
+       ],
+       "description": "Language of the spoken sentences, used only with response_mode \"spoken\": \"en\" (default) or \"ar\" (Modern Standard Arabic). Numbers stay in Western digits; headline and market titles keep their source language."
+      }
+     },
+     "required": [
+      "country_code"
+     ]
+    },
+    "annotations": {
+     "title": "Country instability score, advisory and sanctions",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "subscription",
+     "worldmonitor/weight": 2,
+     "ui": {
+      "resourceUri": "ui://worldmonitor/country-risk-v3.html"
+     },
+     "ui/resourceUri": "ui://worldmonitor/country-risk-v3.html",
+     "openai/toolInvocation/invoking": "Loading country risk…",
+     "openai/toolInvocation/invoked": "Loaded country risk",
+     "openai/toolInvocation": {
+      "invoking": "Loading country risk…",
+      "invoked": "Loaded country risk"
+     }
+    }
+   },
+   {
+    "name": "get_mcp_allowance",
+    "title": "Remaining MCP allowance",
+    "description": "Read the authenticated account remaining MCP allowance and UTC reset time without spending a daily allocation. Includes free-account request-window status and whether REST shares the budget. No account selector or provider-data calls. Unavailable counter state returns an error.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Remaining MCP allowance",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 2
+    }
+   },
+   {
+    "name": "start_upgrade",
+    "title": "Start a plan upgrade",
+    "description": "Return a personal checkout link for a paid self-serve plan, bound to the signed-in account. The allowance-exhausted, upgrade-required and quota-exceeded denials name the plan one step up in recommendedPlan. The user pays in a browser: the tool never charges and spends no daily allowance. Each call opens a new checkout session, counts toward a limit of 5 per account per 10 minutes, and records the account's acceptance of the Terms of Service, as the pricing page does. Once payment is confirmed the account allowance reports the paid limit, with no re-authorization. An account already holding a plan in the same family, a payment pending for under 15 minutes, or the checkout limit returns an error instead of a link.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "plan": {
+       "type": "string",
+       "enum": [
+        "pro_monthly",
+        "pro_annual",
+        "pro_business_monthly",
+        "pro_business_annual",
+        "api_starter",
+        "api_starter_annual",
+        "api_business",
+        "api_business_annual"
+       ],
+       "description": "Self-serve plan to buy, usually the recommendedPlan from a denial. Monthly and annual variants are separate values."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": [
+      "plan"
+     ]
+    },
+    "annotations": {
+     "title": "Start a plan upgrade",
+     "readOnlyHint": false,
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": true
+    },
+    "_meta": {
+     "worldmonitor/access": "free-account",
+     "worldmonitor/weight": 2
+    }
+   },
+   {
+    "name": "get_sources",
+    "title": "Source inventory",
+    "description": "WorldMonitor's live source inventory, for deciding whether and how far to trust what the other tools return. Two separate populations: `providers` are upstream hosts data is fetched from (with licence and attribution status), and `outlets` are named public source identities carrying an editorial tier plus propaganda-risk and source-type provenance. Platform channels include stable platform identities instead of pretending every source is a newsroom masthead. Defaults to `summary` (counts only); pass a view to enumerate. Static registry read — no network, no cache, always current with the deployed build. Credential-free: callable anonymously with no daily quota, under a separate ceiling of 10 unauthenticated calls per minute per IP.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "view": {
+       "type": "string",
+       "enum": [
+        "summary",
+        "providers",
+        "outlets"
+       ],
+       "description": "What to list: summary returns counts only; providers lists upstream hosts with licence and attribution status; outlets lists named source identities with tier and provenance. Every view also carries summary. Omitted means summary."
+      },
+      "kind": {
+       "type": "string",
+       "description": "providers view only: restrict to one kind — feed, structured, feed+structured, or operational-status."
+      },
+      "country": {
+       "type": "string",
+       "description": "providers view only: restrict by publisher origin using a two-letter country code or intl for international sources. Case-insensitive."
+      },
+      "tier": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 4,
+       "description": "outlets view only: keep outlets with this declared editorial tier: 1 wire services and official bodies, 2 major outlets, 3 specialist, regional and think-tank sources, 4 aggregators and blogs. Outlets with no declared tier never match, because their tier is unknown rather than 4."
+      },
+      "risk": {
+       "type": "string",
+       "enum": [
+        "low",
+        "medium",
+        "high",
+        "unknown"
+       ],
+       "description": "outlets view only: keep outlets in this propaganda-risk band: high is state media, medium warrants caution, low is reviewed low risk, unknown is unreviewed."
+      },
+      "platform": {
+       "type": "string",
+       "enum": [
+        "telegram"
+       ],
+       "description": "outlets view only: keep source identities configured on this platform, such as Telegram channels, rather than newsroom mastheads."
+      },
+      "query": {
+       "type": "string",
+       "description": "Case-insensitive substring match — against host and provider in the providers view, against outlet name in the outlets view. Applied before limit."
+      },
+      "limit": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 200,
+       "description": "Maximum rows in the providers or outlets list, in registry order; omitted means 50. Ignored by the summary view. The full provider inventory does not fit one response, so a truncated result sets returned < matched."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": []
+    },
+    "annotations": {
+     "title": "Source inventory",
+     "readOnlyHint": true,
+     "destructiveHint": false,
+     "idempotentHint": true,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free",
+     "worldmonitor/weight": 2
+    }
+   },
+   {
+    "name": "get_stock_research",
+    "title": "Stock research",
+    "description": "Run one stock-research operation and return {operation, data}: analysis (current rating with model and engineVersion provenance), backtest (technical-signal simulation with ratingBasis provenance), history (saved analysis snapshots per symbol) or stored-backtests (saved backtests per symbol). Use analysis/backtest for a named ticker and history/stored-backtests for saved watchlist research. Results record availability and observation dates; backtests omit point-in-time fundamentals and are simulations, not trading results or forecasts. A cold analysis may fetch upstream market data and call an LLM (up to 55 s) and may save a shared research snapshot, so readOnlyHint is false; no trades or account changes occur. Requires a paid plan; weight 2 on API plans, with the gateway's provider quotas also applying.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "operation": {
+       "type": "string",
+       "enum": [
+        "analysis",
+        "backtest",
+        "history",
+        "stored-backtests"
+       ],
+       "description": "What to run: a current rating (analysis), a simulation of the symbol's past technical signals (backtest), saved analysis snapshots (history) or saved backtest results (stored-backtests)."
+      },
+      "symbols": {
+       "type": "array",
+       "minItems": 1,
+       "maxItems": 50,
+       "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32
+       },
+       "description": "Yahoo Finance tickers identifying the instruments to research, such as AAPL or 7203.T. Use a single ticker for analysis/backtest or a watchlist for saved results. Values are trimmed and uppercased."
+      },
+      "include_news": {
+       "type": "boolean",
+       "default": false,
+       "description": "analysis/history only: search recent headlines for the symbol and use them in the analysis (headlines, newsSummary); history then reads snapshots saved with news."
+      },
+      "limit_per_symbol": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 32,
+       "default": 4,
+       "description": "For history, controls how many saved analysis snapshots to read for each ticker, newest first."
+      },
+      "eval_window_days": {
+       "type": "integer",
+       "minimum": 3,
+       "maximum": 30,
+       "default": 10,
+       "description": "backtest/stored-backtests only: trading days each historical signal is held before its simulated return is measured."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": [
+      "operation",
+      "symbols"
+     ]
+    },
+    "annotations": {
+     "title": "Stock research",
+     "readOnlyHint": false,
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": true
+    },
+    "_meta": {
+     "worldmonitor/access": "subscription",
+     "worldmonitor/weight": 2
+    }
+   },
+   {
+    "name": "report_issue",
+    "title": "Report an issue",
+    "description": "Stores one report for the WorldMonitor maintainers about a bug, a missing capability, wrong or stale data, or a security concern, and returns its reportId and status. requestId links the report to a failing call. Nothing is published and no reply is sent. Credentials and email addresses are redacted before storage; secrets and personal data do not belong in a report. Vulnerability details belong in the private advisory form at https://github.com/koala73/worldmonitor/security/advisories/new; kind security only flags that one exists. Credential-free: anonymous callers get 5 reports per hour per IP, and accounts with API access get 30 per day.",
+    "inputSchema": {
+     "type": "object",
+     "properties": {
+      "kind": {
+       "type": "string",
+       "enum": [
+        "bug",
+        "missing_capability",
+        "data_quality",
+        "security"
+       ],
+       "description": "bug: something failed or behaved wrongly. missing_capability: a tool, filter, or dataset you needed does not exist. data_quality: values look wrong, stale, or inconsistent. security: flags a vulnerability; put the details in the private advisory form, not here."
+      },
+      "surface": {
+       "type": "string",
+       "maxLength": 200,
+       "description": "What the report is about: a tool name such as get_market_data, a REST path such as /api/market/v1/list-market-quotes, or a short label for something that does not exist yet."
+      },
+      "summary": {
+       "type": "string",
+       "minLength": 1,
+       "maxLength": 300,
+       "description": "The problem as a maintainer would title it, such as \"Quotes for ^N225 come back empty\"."
+      },
+      "expected": {
+       "type": "string",
+       "maxLength": 2000,
+       "description": "What you expected to happen or to receive."
+      },
+      "actual": {
+       "type": "string",
+       "maxLength": 2000,
+       "description": "What happened instead, such as the error message or the wrong value."
+      },
+      "requestId": {
+       "type": "string",
+       "maxLength": 128,
+       "pattern": "^[A-Za-z0-9:_-]+$",
+       "description": "The failing call's request id: data.requestId from an MCP error, or the x-vercel-id header of a REST response."
+      },
+      "clientName": {
+       "type": "string",
+       "maxLength": 80,
+       "description": "Your client or agent name, such as claude-code."
+      },
+      "jmespath": {
+       "type": "string",
+       "description": "JMESPath expression run server-side on this result to keep only the fields you select; omit for the full result. See initialize.instructions."
+      }
+     },
+     "required": [
+      "kind",
+      "summary"
+     ]
+    },
+    "annotations": {
+     "title": "Report an issue",
+     "readOnlyHint": false,
+     "destructiveHint": false,
+     "idempotentHint": false,
+     "openWorldHint": false
+    },
+    "_meta": {
+     "worldmonitor/access": "free",
+     "worldmonitor/weight": 2
+    }
+   }
+  ]
+ }
+}
