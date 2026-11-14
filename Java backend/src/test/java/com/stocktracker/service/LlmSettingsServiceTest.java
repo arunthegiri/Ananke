@@ -144,4 +144,29 @@ class LlmSettingsServiceTest {
         assertThat(list.error()).contains("Add an API key");
         assertThat(lastPath.get()).isNull();
     }
+
+    @Test
+    void externalPackProviderIsResolvedPerCallAndSurvivesReload() {
+        LlmSettingsService s = service();
+        KimiClient packClient = new KimiClient("ak", base() + "/v1", "pack-3", "", base() + "/v1", "pack-3");
+        java.util.concurrent.atomic.AtomicBoolean running = new java.util.concurrent.atomic.AtomicBoolean(true);
+        LlmSettingsService.ExternalProviders ext = new LlmSettingsService.ExternalProviders() {
+            public java.util.Optional<LLMClient> clientFor(String id) {
+                return "pack:3".equals(id) && running.get() ? java.util.Optional.of(packClient) : java.util.Optional.empty();
+            }
+            public java.util.Optional<String> labelFor(String id) { return java.util.Optional.of("Pack: Qwen"); }
+        };
+        s.setExternalProviders(ext);
+        s.activateExternal("pack:3");
+        assertThat(s.activeClient()).containsSame(packClient);
+
+        // A stopped Pack falls back to .env instead of breaking the copilot.
+        running.set(false);
+        assertThat(s.activeClient()).isEmpty();
+
+        // The pack: id is kept across a restart (presets-only validation must not drop it).
+        LlmSettingsService reloaded = service();
+        assertThat(reloaded.activeProvider()).isEqualTo("pack:3");
+        assertThatThrownBy(() -> s.activateExternal("openai")).isInstanceOf(IllegalArgumentException.class);
+    }
 }

@@ -496,7 +496,13 @@ function EffectiveFooter() {
 
   const active = s.providers.find((p) => p.id === s.activeProvider);
   let text: string;
-  if (s.effectiveSource === "settings" && active) {
+  if (s.effectiveSource === "settings" && s.activeProviderLabel) {
+    text = `Copilot is using ${s.activeProviderLabel} · ${s.effectiveModel}`;
+  } else if (s.activeProvider?.startsWith("pack:") && s.effectiveSource === "env") {
+    text = `${s.activeProviderLabel ?? "The selected Pack"} is not running — ${
+      s.envConfigured ? `using .env (${s.envModel})` : "Copilot is off"
+    }`;
+  } else if (s.effectiveSource === "settings" && active) {
     text = `Copilot is using ${active.label} · ${s.effectiveModel}`;
   } else if (s.activeProvider && active && !isUsable(active)) {
     text = `${active.label} is selected but incomplete — ${

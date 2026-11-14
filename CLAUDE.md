@@ -74,7 +74,7 @@ src/
   components/terminal/ ← the design system: TerminalPanel, tabs, PanelState, controls/, table/
   components/copilot/  ← copilot surfaces: CodeBlock, BacktestCard, CopilotMarkdown
   components/metrics/  ← §15 analysis panels (strategy table, universe ranking, correlation, …)
-  routes/           ← /, /data, /backtesting, /live, /metrics, /models, /copilot, /settings (+ dev/controls, DEV-only)
+  routes/           ← /, /data, /backtesting, /live, /metrics, /models, /copilot, /packs, /settings (+ dev/controls, DEV-only)
 executor/           ← stdlib Python code executor mounted into the Jupyter container (copilot M0)
   routeTree.gen.ts  ← AUTO-GENERATED — never edit
 ```
@@ -143,6 +143,13 @@ changes.
 See AGENTS.md for the executor's chunked-body requirement, the Kimi `temperature` restriction, and
 the `ObjectMapper`/`SseEmitter` traps.
 
+### Packs
+
+`/packs` deploys a pinned Hugging Face model with vLLM on the user's own SSH-reachable GPU machine and
+registers it as copilot provider `pack:<id>`. Secrets are AES-GCM encrypted (`SecretVault`), the only
+remote code is `resources/packs/vllm-bootstrap.sh`, and AWS/GCP provisioning is not built. Contract and
+security rules: `Dev-notes/Ananke Packs Build Doc.md` and AGENTS.md.
+
 ### Timezones
 
 Eastern, everywhere, derived from `Intl` — never a hardcoded −4/−5. Session state, the economic
@@ -176,6 +183,7 @@ Backend-side (root `.env`, passed to `stock-tracker` by compose):
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset | anthropic provider — used only when `LLM_PROVIDER=anthropic` |
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | legacy names, still read as fallbacks when the `LLM_*` vars are unset |
 | `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where Java reaches the Python executor |
+| `ANANKE_SECRET_KEY` | unset | Packs: base64 32-byte master key for encrypted credentials (unset = generated key file on the data volume) |
 
 Unset/misconfigured provider = `/api/copilot/*` returns 503 and the tab explains why.
 

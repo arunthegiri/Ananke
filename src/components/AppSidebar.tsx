@@ -11,6 +11,7 @@ import {
   Sparkles,
   TerminalSquare,
   Settings,
+  Package,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEndpointStatus, subscribeProbe, type EndpointName } from "@/lib/api/health-probe";
@@ -24,6 +25,7 @@ type NavRoute =
   | "/metrics"
   | "/models"
   | "/copilot"
+  | "/packs"
   | "/settings";
 
 type NavItem = {
@@ -41,6 +43,7 @@ const NAV: NavItem[] = [
   { to: "/live", label: "Live", icon: Activity },
   { to: "/metrics", label: "Metrics", icon: Gauge },
   { to: "/models", label: "Models", icon: Brain },
+  { to: "/packs", label: "Packs", icon: Package },
 ];
 
 /** Pinned to the bottom of the rail, macOS-style. */

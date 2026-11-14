@@ -45,7 +45,7 @@ public class LlmSettingsController {
 
     public record SettingsView(String activeProvider, String effectiveSource, boolean configured,
                                String effectiveModel, String envModel, boolean envConfigured,
-                               List<ProviderView> providers) { }
+                               List<ProviderView> providers, String activeProviderLabel) { }
 
     public record UpdateRequest(String provider, String apiKey, String baseUrl, String model, Boolean activate) { }
 
@@ -120,7 +120,8 @@ public class LlmSettingsController {
                 configured ? copilotClient.model() : null,
                 envClient.isConfigured() ? envClient.model() : null,
                 envClient.isConfigured(),
-                providers);
+                providers,
+                s.activeProvider == null ? null : settings.externalLabel(s.activeProvider).orElse(null));
     }
 
     private static String rootMessage(Throwable e) {

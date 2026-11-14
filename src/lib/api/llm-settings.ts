@@ -30,6 +30,8 @@ export interface LlmSettings {
   envModel: string | null;
   envConfigured: boolean;
   providers: LlmProvider[];
+  /** Set when the active provider is a deployed Pack (`pack:<id>`), e.g. "Pack: Qwen3-8B". */
+  activeProviderLabel: string | null;
 }
 
 export interface LlmModelList {

@@ -84,6 +84,26 @@ public class LlmSettingsService {
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(8)).build();
 
+    /**
+     * Providers that aren't presets — today, deployed Packs ({@code pack:<id>}),
+     * registered by PackService. Resolved per call, never cached here, so a Pack
+     * that stops simply falls back to the .env provider.
+     */
+    public interface ExternalProviders {
+        Optional<LLMClient> clientFor(String providerId);
+        Optional<String> labelFor(String providerId);
+    }
+
+    private volatile ExternalProviders external;
+
+    public void setExternalProviders(ExternalProviders external) {
+        this.external = external;
+    }
+
+    static boolean isExternalId(String id) {
+        return id != null && id.startsWith("pack:");
+    }
+
     private Stored stored;
     /** Built lazily from {@link #stored}; dropped whenever settings change. */
     private LLMClient cachedClient;
@@ -124,6 +144,11 @@ public class LlmSettingsService {
     /** The user-selected client, if one is saved and usable; empty means "use the .env provider". */
     public synchronized Optional<LLMClient> activeClient() {
         if (stored.activeProvider == null) return Optional.empty();
+        if (isExternalId(stored.activeProvider)) {
+            ExternalProviders ext = external;
+            return ext == null ? Optional.empty()
+                    : ext.clientFor(stored.activeProvider).filter(LLMClient::isConfigured);
+        }
         if (cachedClient == null) cachedClient = build(stored.activeProvider);
         return cachedClient != null && cachedClient.isConfigured() ? Optional.of(cachedClient) : Optional.empty();
     }
@@ -156,6 +181,20 @@ public class LlmSettingsService {
 
         cachedClient = null;
         save();
+    }
+
+    /** Makes an external provider (a deployed Pack) the copilot's provider. Caller validates it. */
+    public synchronized void activateExternal(String providerId) {
+        if (!isExternalId(providerId)) throw new IllegalArgumentException("Not an external provider id");
+        stored.activeProvider = providerId;
+        cachedClient = null;
+        save();
+    }
+
+    /** Display label for the active provider when it's external, e.g. "Pack: Qwen3-8B". */
+    public Optional<String> externalLabel(String providerId) {
+        ExternalProviders ext = external;
+        return ext == null || !isExternalId(providerId) ? Optional.empty() : ext.labelFor(providerId);
     }
 
     /** Stop overriding .env: the copilot goes back to the environment-configured provider. */
@@ -294,7 +333,9 @@ public class LlmSettingsService {
         try {
             Stored s = mapper.readValue(file.toFile(), Stored.class);
             if (s.providers == null) s.providers = new LinkedHashMap<>();
-            if (s.activeProvider != null && preset(s.activeProvider).isEmpty()) s.activeProvider = null;
+            if (s.activeProvider != null && preset(s.activeProvider).isEmpty() && !isExternalId(s.activeProvider)) {
+                s.activeProvider = null;
+            }
             log.info("Loaded Copilot provider settings from {} (active: {})", file,
                     s.activeProvider == null ? ".env default" : s.activeProvider);
             return s;

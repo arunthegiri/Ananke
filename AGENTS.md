@@ -248,6 +248,25 @@ Gotchas found while building it, all fixed but easy to reintroduce:
   `docker compose` from the wrong cwd builds `javabackend-stock-tracker` and leaves the running
   `anake-stock-tracker` untouched, so fixes appear to have no effect.
 
+### Ananke Packs (Dev-notes/Ananke Packs Build Doc.md)
+
+`/packs` turns a Hugging Face model into a copilot provider running on the user's own GPU machine.
+Backend lives in `com.stocktracker.packs` (resolver → compute provider → remote runtime → service →
+controller); the only code that ever runs on a machine is `resources/packs/vllm-bootstrap.sh`, sent
+over SSH on stdin with validated args. Load-bearing rules:
+- **Secrets** (SSH keys, HF tokens, vLLM API keys) go through `SecretVault` (AES-256-GCM, table
+  `ananke_secrets`, master key `ANANKE_SECRET_KEY` or a generated `0600` key file). Never add a
+  column, log line or API field that carries one in plaintext. Changing the master key makes stored
+  secrets undecryptable (by design; the API says so).
+- **Revisions are SHAs.** Profiles are read and weights downloaded at the pinned commit, never `main`.
+- **Remote code is opt-in per Pack**, and deploy refuses without it when the repo needs it.
+- **vLLM binds 127.0.0.1**; the backend reaches it through an `ssh -L` tunnel. The Pack registers as
+  provider `pack:<id>` through `LlmSettingsService.ExternalProviders` — the copilot code is unchanged.
+- **Tool calling is probed, not assumed.** "Use for Copilot" is refused unless the live probe passed,
+  because the copilot always sends tools.
+- The backend image installs `openssh-client` (Dockerfile); Packs use the system `ssh`, not a JVM lib.
+- AWS/GCP: listed by `/api/compute/providers` as `available:false`. Do not fake provisioning.
+
 ### Copilot V1 regression baseline (Phase 0)
 
 These contracts are **frozen by tests** as the regression baseline for Phase 1. A Phase 1 change
@@ -376,6 +395,9 @@ Backend-side (`.env`, passed to `stock-tracker` by compose):
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset / `https://api.anthropic.com` / `claude-sonnet-4-5` | Used only when `LLM_PROVIDER=anthropic` |
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | Legacy names — still read as fallbacks when the `LLM_*` vars above are unset |
 | `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where the Java container reaches `executor.py` |
+| `ANANKE_SECRET_KEY` | unset | Packs: base64 32-byte master key for encrypted credentials. Unset = generated key file on the data volume |
+| `ANANKE_VLLM_VERSION` | `0.11.0` | Packs: vLLM version installed on machines (pinned) |
+| `ANANKE_PACKS_HEALTH_TIMEOUT_MINUTES` / `ANANKE_PACKS_DEPLOY_TIMEOUT_MINUTES` | `30` / `90` | Packs: model-load and install/download limits |
 
 No provider configured (missing key for the selected `LLM_PROVIDER`) = `/api/copilot/*` answers 503
 and the tab shows a config notice.
