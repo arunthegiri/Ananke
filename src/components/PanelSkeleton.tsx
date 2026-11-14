@@ -1,4 +1,4 @@
-import { GripHorizontal, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 // Panel geometry constants, co-located with the skeleton (build doc §13) so
 // the placeholder and the real ChartPanel can't drift apart. ChartPanel
@@ -52,8 +52,8 @@ export function PanelSkeleton({ symbol, height }: { symbol?: string; height: num
         <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground/50">
           <Loader2 className="h-4 w-4 animate-spin" />
         </div>
-        <div className="flex h-2 shrink-0 items-center justify-center border-t border-border bg-border/10">
-          <GripHorizontal className="h-3 w-3 text-muted-foreground/50" />
+        <div className="flex h-3 shrink-0 items-center justify-center border-t border-border bg-border/20">
+          <div aria-hidden className="h-1 w-10 rounded-full bg-muted-foreground/60" />
         </div>
       </div>
     </div>

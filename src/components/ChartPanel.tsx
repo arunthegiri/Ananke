@@ -3,7 +3,8 @@ import { keepPreviousData, useQuery, useQueries } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Group, Panel, Separator, useDefaultLayout } from "react-resizable-panels";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, GripHorizontal, Loader2, Plus, X, Bell, CandlestickChart, GitCompareArrows, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Plus, X, Bell, CandlestickChart, GitCompareArrows, SlidersHorizontal, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
 
 import { PriceChart, type IndicatorConfig, type ChartType, type ViewportIntent } from "@/components/PriceChart";
 import { ChartScrollbar } from "@/components/ChartScrollbar";
@@ -29,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buildPythonSnippet } from "@/lib/python-export";
+import { openInJupyterLab } from "@/lib/jupyter-export";
 import {
   buildUtcApiRange,
   formatDisplayDate,
@@ -540,6 +542,18 @@ export function ChartPanel({ onRemove, canRemove, initialSymbol = "", persistKey
     [selectedSymbol, fromApi, toApi, interval],
   );
 
+  const [openingJupyter, setOpeningJupyter] = useState(false);
+  const handleOpenInJupyter = useCallback(async () => {
+    setOpeningJupyter(true);
+    try {
+      await openInJupyterLab(pythonCode, `${selectedSymbol}_${interval}.py`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open JupyterLab");
+    } finally {
+      setOpeningJupyter(false);
+    }
+  }, [pythonCode, selectedSymbol, interval]);
+
   const applyPreset = (preset: Exclude<ChartRangePreset, "CUSTOM">) => {
     const r = getPresetRange(preset);
     setRangePreset(preset);
@@ -770,6 +784,13 @@ export function ChartPanel({ onRemove, canRemove, initialSymbol = "", persistKey
                 </Popover>
 
                 <div aria-hidden className="mx-1.5 h-4 w-px bg-border-subtle" />
+                <IconButton
+                  icon={openingJupyter ? Loader2 : ExternalLink}
+                  label="Open in JupyterLab"
+                  disabled={!selectedSymbol || openingJupyter}
+                  onClick={handleOpenInJupyter}
+                  className={openingJupyter ? "[&>svg]:animate-spin" : undefined}
+                />
                 <IconButton icon={Bell} label="Alerts — coming soon" disabled />
               </div>
 
@@ -984,9 +1005,9 @@ export function ChartPanel({ onRemove, canRemove, initialSymbol = "", persistKey
           onPointerUp={endVDrag}
           onPointerCancel={endVDrag}
           onKeyDown={handleVKeyDown}
-          className="group flex h-2 shrink-0 cursor-row-resize touch-none items-center justify-center border-t border-border bg-border/10 transition-colors hover:bg-border/40 focus:bg-primary/30 focus:outline-none active:bg-primary/30"
+          className="group flex h-3 shrink-0 cursor-row-resize touch-none items-center justify-center border-t border-border bg-border/20 transition-colors hover:bg-border/50 focus:bg-primary/30 focus:outline-none active:bg-primary/30"
         >
-          <GripHorizontal className="h-3 w-3 text-muted-foreground/50 group-hover:text-muted-foreground" />
+          <div aria-hidden className="h-1 w-10 rounded-full bg-muted-foreground/60 transition-colors group-hover:bg-foreground group-focus:bg-foreground" />
         </div>
       </div>
       {/* Strategy stats panel */}
