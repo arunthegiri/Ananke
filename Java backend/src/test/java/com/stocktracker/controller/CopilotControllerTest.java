@@ -47,7 +47,7 @@ class CopilotControllerTest {
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.status").value(503))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
-                        "no LLM provider has credentials")));
+                        "no AI provider is set up")));
     }
 
     @Test
