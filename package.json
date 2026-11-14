@@ -19,7 +19,9 @@
     "test:calendar": "node tests/event-calendar.test.mjs",
     "test:correlation": "node tests/correlation.test.mjs",
     "test:distribution": "node tests/pnl-distribution.test.mjs",
-    "test:unit": "npm run test:theme && npm run test:calendar && npm run test:correlation && npm run test:distribution"
+    "test:instruments": "node tests/instruments.test.mjs",
+    "test:sessions": "node tests/session-calendar.test.mjs",
+    "test:unit": "npm run test:theme && npm run test:calendar && npm run test:correlation && npm run test:distribution && npm run test:instruments && npm run test:sessions"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

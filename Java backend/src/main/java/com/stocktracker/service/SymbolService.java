@@ -15,9 +15,11 @@ import java.util.List;
 public class SymbolService {
 
     private final TrackedSymbolRepository repo;
+    private final InstrumentService       instruments;
 
-    public SymbolService(TrackedSymbolRepository repo) {
-        this.repo = repo;
+    public SymbolService(TrackedSymbolRepository repo, InstrumentService instruments) {
+        this.repo        = repo;
+        this.instruments = instruments;
     }
 
     @Transactional(readOnly = true)
@@ -36,6 +38,8 @@ public class SymbolService {
 
     public ApiDto.SymbolResponse addSymbol(String symbol) {
         String upper = symbol.toUpperCase();
+        // Every tracked symbol is also a registered instrument (multi-asset P1).
+        instruments.ensureEquity(upper);
 
         if (repo.existsBySymbolIgnoreCase(upper)) {
             // Re-enable if it was disabled

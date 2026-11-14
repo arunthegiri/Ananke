@@ -18,7 +18,7 @@ npm run format       # Prettier (write)
 
 npm run test:visual        # Playwright suite (visual baselines + behavioural contracts)
 npm run test:visual:update # re-record baselines — review every diff
-npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions)
+npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions, instruments, sessions)
 ```
 
 To run against the Spring Boot backend: `VITE_API_BASE_URL=http://localhost:8080 npm run dev`.
@@ -98,6 +98,17 @@ Eastern, everywhere, derived from `Intl` — never a hardcoded −4/−5. Sessio
 calendar, distribution buckets, `/data`'s range inputs and its `time (ET)` column all agree. A
 value converted through the *runtime's* local zone differs between the SSR process and the
 browser, which is a hydration bug as well as a product one.
+
+Not every instrument keeps equity hours: `lib/session-calendar.ts` maps an asset class to its
+calendar (US equity, CME Globex, crypto 24/7), still on the same `Intl`-derived ET math.
+
+### Instruments (multi-asset, issue #8)
+
+Every asset class shares one canonical key: `AAPL`, `^SPX`, `AAPL261218C00200000` (compact OCC),
+`ESZ26@CME`, `ES1!`, `BTC/USD`. `lib/instruments.ts` and the backend's `InstrumentKey` must parse
+identically. Their tests mirror each other, so change both together. Futures need the `@exchange`
+suffix so a bare `ESZ26` can never be mistaken for a stock. Futures multipliers come only from the
+backend's `FuturesSpecs`, never a default.
 
 ### Backend contract
 

@@ -21,7 +21,7 @@ npm run format       # Prettier (write)
 
 npm run test:visual        # Playwright visual + behavioural suite (build doc §2 harness)
 npm run test:visual:update # …re-record baselines (review every diff in the PR)
-npm run test:unit          # plain-node unit tests: chart theme, calendar, correlation, distributions
+npm run test:unit          # plain-node unit tests: chart theme, calendar, correlation, distributions, instrument keys, session calendars
 ```
 
 The visual harness stubs every `/api/*` call (`tests/visual/fixtures.ts`) and fails a test if any
@@ -83,6 +83,8 @@ src/
   lib/correlation.ts ← §15.1 pure correlation math (log returns, timestamp alignment, Pearson matrix)
   lib/pnl-distribution.ts ← §15.4 B9 bindings: PnL by ET hour / ET weekday / outcome bucket
   lib/event-calendar.ts ← §15.3 B5 event feed + `blackoutWindows()` (the machine-readable half the risk manager consumes)
+  lib/instruments.ts ← multi-asset P1 (issue #8): canonical instrument keys for every asset class (AAPL · ^SPX · AAPL261218C00200000 · ESZ26@CME · ES1! · BTC/USD), parse/build, asset class → session calendar. Java twin: `com.stocktracker.instrument.InstrumentKey`
+  lib/session-calendar.ts ← per-asset trading hours: US_EQUITY (delegates to market-calendar.ts), CME_GLOBEX (Sun 18:00 → Fri 17:00 ET, daily 17:00 halt; CME holidays not modelled), CRYPTO_24_7
   lib/data/economic-releases.ts ← maintained FOMC/CPI/NFP schedule (ET dates + times, `VERIFIED_THROUGH_DATE`)
   lib/realtime/     ← §14 M5 hot path: socket.ts (flagged transport + backoff + ?wsMock=1), symbol-stores.ts (per-symbol useSyncExternalStore cells), coalesce.ts (module-scope rAF flusher)
   lib/python-export.ts ← generates pandas + SQLAlchemy snippets mirroring the UI query
@@ -184,6 +186,7 @@ Backend endpoints currently implemented:
 - `GET /api/prices/{symbol}/range?from=&to=`
 - `GET /api/strategies`, `GET /api/strategies/{name}`, `POST /api/strategies/{name}/run`
 - `GET /api/strategies/active`, `GET /api/account`, `GET /api/positions`, `GET /api/models`
+- `GET /api/instruments?assetClass=`, `GET /api/instruments/lookup?key=`, `POST /api/instruments {key}` (multi-asset P1). Keys travel as query/body, never path segments (`/`, `!`, `^`). Futures roots without a `FuturesSpecs` entry are refused (400), never given a guessed multiplier. Tracking a symbol via `POST /api/symbols` also registers its instrument.
 
 Waiting on the backend (each renders a §6 `PanelState kind="pending"` naming the exact endpoint, never a blank panel — decision D5):
 - `GET /api/metrics/engine?from=&to=` → `LatencySample[]` (§15.4 B7; shape proposed in `lib/api/metrics.ts`)

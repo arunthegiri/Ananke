@@ -169,6 +169,22 @@ function weekdayOf(date: string): number {
   return new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
 }
 
+/**
+ * ET calendar date, minutes after ET midnight, and weekday for an instant.
+ * Exported for lib/session-calendar.ts so non-equity calendars (CME Globex,
+ * crypto) share this file's single Intl-derived source of ET truth.
+ */
+export function etWallClock(ms: number): { date: string; minutes: number; weekday: number } {
+  const p = etParts(ms);
+  const date = etDateString(p);
+  return { date, minutes: p.hh * 60 + p.mm, weekday: weekdayOf(date) };
+}
+
+/** ET calendar date `days` after `date` (pure calendar math). */
+export function addEtDays(date: string, days: number): string {
+  return addDays(date, days);
+}
+
 export function isTradingDay(date: string): boolean {
   const dow = weekdayOf(date);
   return dow !== 0 && dow !== 6 && !HOLIDAYS.has(date);

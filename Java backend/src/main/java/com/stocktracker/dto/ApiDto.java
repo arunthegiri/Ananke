@@ -30,6 +30,40 @@ public class ApiDto {
         private Instant createdAt;
     }
 
+    /** Request body for POST /api/instruments (multi-asset P1). */
+    @Data
+    public static class InstrumentRequest {
+        @NotBlank(message = "key must not be blank")
+        private String key;
+    }
+
+    /**
+     * An instrument of any asset class. Mirrors {@code Instrument} in
+     * src/lib/instruments.ts; the per-class blocks are null when not applicable.
+     */
+    @Data
+    public static class InstrumentResponse {
+        private Long       id;
+        private String     key;
+        private String     assetClass;
+        private String     symbol;
+        private String     name;
+        private String     exchange;
+        private String     currency;
+        private BigDecimal multiplier;
+        private BigDecimal tickSize;
+        private String     sessionCalendar;
+        private String     underlyingKey;
+        private OptionSpec option;
+        private FutureSpec future;
+        private CryptoSpec crypto;
+        private boolean    active;
+
+        public record OptionSpec(String expiry, String right, BigDecimal strike) {}
+        public record FutureSpec(String root, String contractMonth, String lastTradeDate) {}
+        public record CryptoSpec(String base, String quote) {}
+    }
+
     /** Response payload for a single price record */
     @Data
     public static class PriceResponse {
