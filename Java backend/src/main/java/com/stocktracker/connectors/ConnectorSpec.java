@@ -11,6 +11,8 @@ import java.util.List;
  * @param attribution credit line the source requires; shown wherever its data is shown
  * @param fields      what the user supplies to link it; empty = keyless (linked by default)
  * @param limits      upstream rate limits Ananke enforces before calling, tightest first
+ * @param keyedLimits limits used instead once the user has entered a secret (e.g. openFDA: 1k/day
+ *                    without a key, 120k/day with one); empty = {@code limits} always apply
  */
 public record ConnectorSpec(
         String id,
@@ -21,12 +23,25 @@ public record ConnectorSpec(
         String attribution,
         String homepage,
         List<Field> fields,
-        List<RateLimit> limits) {
+        List<RateLimit> limits,
+        List<RateLimit> keyedLimits) {
 
     public ConnectorSpec {
         if (id == null || !id.matches("^[a-z0-9_]{2,32}$")) throw new IllegalArgumentException("Bad connector id: " + id);
         fields = fields == null ? List.of() : List.copyOf(fields);
         limits = limits == null ? List.of() : List.copyOf(limits);
+        keyedLimits = keyedLimits == null ? List.of() : List.copyOf(keyedLimits);
+    }
+
+    /** No separate with-key limits. */
+    public ConnectorSpec(String id, String name, Category category, Licence licence, String description,
+                         String attribution, String homepage, List<Field> fields, List<RateLimit> limits) {
+        this(id, name, category, licence, description, attribution, homepage, fields, limits, List.of());
+    }
+
+    /** Copy with higher limits that apply once a secret field is set. */
+    public ConnectorSpec withKeyedLimits(List<RateLimit> keyed) {
+        return new ConnectorSpec(id, name, category, licence, description, attribution, homepage, fields, limits, keyed);
     }
 
     public boolean keyless() {
@@ -46,6 +61,10 @@ public record ConnectorSpec(
         FREE_PUBLIC,
         /** User's own key; the provider's self-serve terms are personal use only. */
         BYO_PERSONAL,
+        /** No key, but the provider's terms allow personal, non-redistributed use only (Kalshi, Polymarket). */
+        PUBLIC_PERSONAL,
+        /** Software the user runs themselves (OpenBB, Theta Terminal); data terms are those of the user's own providers. */
+        SELF_HOSTED,
         /** User's own key; the provider's plan permits commercial (internal) use. */
         BYO_COMMERCIAL,
         /** AGPL project run as a separate service and called over its API (§0.4). */
@@ -69,6 +88,11 @@ public record ConnectorSpec(
 
         public static Field text(String key, String label, String help, String placeholder) {
             return new Field(key, label, help, false, false, placeholder);
+        }
+
+        /** Optional field; {@code secret} decides whether it is write-only. */
+        public static Field optional(String key, String label, String help, boolean secret, String placeholder) {
+            return new Field(key, label, help, secret, true, placeholder);
         }
     }
 

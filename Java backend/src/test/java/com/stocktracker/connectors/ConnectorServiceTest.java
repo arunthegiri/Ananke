@@ -160,6 +160,19 @@ class ConnectorServiceTest {
     }
 
     @Test
+    void keyedLimits_applyOnceASecretIsSet() {
+        FakeConnector base = new FakeConnector(List.of(ConnectorSpec.RateLimit.perDay(2)));
+        ConnectorSpec keyedSpec = base.spec.withKeyedLimits(List.of(ConnectorSpec.RateLimit.perDay(10)));
+        Connector keyed = new FakeConnector(List.of()) {
+            @Override public ConnectorSpec spec() { return keyedSpec; }
+        };
+        ConnectorService s = build(keyed);
+        s.link("fake", Map.of("api_key", "good-key-1234"));            // the key is set → 10/day
+        for (int i = 0; i < 5; i++) s.call("fake", "fake_echo", om.createObjectNode().put("q", "k" + i));
+        assertThat(upstreamCalls.get()).isEqualTo(6);
+    }
+
+    @Test
     void toolNamesMustCarryTheConnectorPrefix() {
         Connector bad = new FakeConnector(List.of()) {
             @Override public List<ConnectorTool> tools() {

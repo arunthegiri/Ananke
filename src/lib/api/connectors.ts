@@ -17,7 +17,13 @@ export type ConnectorCategory =
   | "GEOPOLITICS"
   | "PREDICTION_MARKETS";
 
-export type ConnectorLicence = "FREE_PUBLIC" | "BYO_PERSONAL" | "BYO_COMMERCIAL" | "AGPL_SIDECAR";
+export type ConnectorLicence =
+  | "FREE_PUBLIC"
+  | "BYO_PERSONAL"
+  | "PUBLIC_PERSONAL"
+  | "SELF_HOSTED"
+  | "BYO_COMMERCIAL"
+  | "AGPL_SIDECAR";
 
 export type ConnectorStatus = "READY" | "NOT_LINKED" | "DISABLED" | "ERROR";
 
@@ -105,6 +111,14 @@ export const LICENCE_LABEL: Record<ConnectorLicence, { label: string; detail: st
   BYO_PERSONAL: {
     label: "Your key · personal use",
     detail: "Uses your own account. The provider's self-serve terms allow personal use only.",
+  },
+  PUBLIC_PERSONAL: {
+    label: "Free · personal use",
+    detail: "No key needed, but the provider's terms allow personal, non-redistributed use only.",
+  },
+  SELF_HOSTED: {
+    label: "Self-hosted",
+    detail: "Software you run yourself; data terms are those of the providers you connect to it.",
   },
   BYO_COMMERCIAL: {
     label: "Your key · commercial plan",

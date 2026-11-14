@@ -98,8 +98,9 @@ public class ConnectorController {
             String hint = service.hint(s.id(), f).orElse(null);
             return new FieldView(f.key(), f.label(), f.help(), f.secret(), f.optional(), f.placeholder(), hint != null, hint);
         }).toList();
-        List<String> limits = s.limits().stream()
-                .map(l -> l.permits() + " / " + RateLimiter.human(l.window())).toList();
+        List<String> limits = new java.util.ArrayList<>(s.limits().stream()
+                .map(l -> l.permits() + " / " + RateLimiter.human(l.window())).toList());
+        s.keyedLimits().forEach(l -> limits.add("with key: " + l.permits() + " / " + RateLimiter.human(l.window())));
         List<ToolView> tools = c.tools().stream().map(t -> new ToolView(t.name(), t.description(), t.parameters())).toList();
         return new ConnectorView(s.id(), s.name(), s.category().name(), s.licence().name(), s.description(),
                 s.attribution(), s.homepage(), fields, limits, tools, s.keyless(), service.isLinked(c), a.enabled(),

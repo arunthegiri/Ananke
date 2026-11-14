@@ -57,7 +57,7 @@ public class OpenBbConnector extends RemoteMcpConnector {
             ConnectorSpec.Category.MARKET_DATA,
             // OpenBB itself is Apache-2.0 (verified 2026-11); the data comes from whichever providers the
             // user configured in their own OpenBB with their own keys, whose terms are mostly personal-use.
-            ConnectorSpec.Licence.BYO_PERSONAL,
+            ConnectorSpec.Licence.SELF_HOSTED,
             "Your own OpenBB Platform MCP server (openbb-mcp-server): quotes and price history, company profile, "
                     + "income statements, analyst consensus, insider trading, company and world news, the economic calendar "
                     + "and CPI — from whichever providers your OpenBB has installed and keyed.",

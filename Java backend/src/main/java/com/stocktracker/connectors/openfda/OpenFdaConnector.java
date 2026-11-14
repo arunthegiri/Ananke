@@ -66,7 +66,8 @@ public class OpenFdaConnector implements Connector {
                     "Optional free key from open.fda.gov/apis/authentication — raises the daily limit from 1,000 to "
                             + "120,000 requests. Leave blank to use openFDA without one.", true, true, null)),
             // Documented: 240 requests/min per IP; 1,000/day without a key (120,000/day with one).
-            List.of(RateLimit.perMinute(60), RateLimit.perDay(1000)));
+            List.of(RateLimit.perMinute(60), RateLimit.perDay(1000)))
+            .withKeyedLimits(List.of(RateLimit.perMinute(200), RateLimit.perDay(100_000)));   // documented: 240/min, 120k/day with a key
 
     private final String base;
     private final Clock clock;

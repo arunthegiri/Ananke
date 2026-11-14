@@ -43,9 +43,15 @@ public class RateLimiter {
 
     /** Blocks briefly or throws; on return one call has been counted against every limit. */
     public void acquire(ConnectorSpec spec) {
-        List<ConnectorSpec.RateLimit> limits = spec.limits();
+        acquire(spec, false);
+    }
+
+    /** {@code keyed}: the user has a key set and the spec has separate with-key limits. */
+    public void acquire(ConnectorSpec spec, boolean keyed) {
+        boolean useKeyed = keyed && !spec.keyedLimits().isEmpty();
+        List<ConnectorSpec.RateLimit> limits = useKeyed ? spec.keyedLimits() : spec.limits();
         if (limits.isEmpty()) return;
-        Deque<Instant>[] log = logFor(spec.id(), limits.size());
+        Deque<Instant>[] log = logFor(spec.id() + (useKeyed ? "#keyed" : ""), limits.size());
         synchronized (log) {
             while (true) {
                 Instant now = clock.instant();

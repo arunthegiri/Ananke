@@ -233,6 +233,8 @@ public class ConnectorService {
     }
 
     private ConnectorContext context(ConnectorSpec spec, java.util.function.Function<String, Optional<String>> fields) {
-        return new ConnectorContext(spec, fields, http, mapper, () -> limiter.acquire(spec));
+        boolean keyed = !spec.keyedLimits().isEmpty()
+                && spec.fields().stream().anyMatch(f -> f.secret() && fields.apply(f.key()).filter(v -> !v.isBlank()).isPresent());
+        return new ConnectorContext(spec, fields, http, mapper, () -> limiter.acquire(spec, keyed));
     }
 }

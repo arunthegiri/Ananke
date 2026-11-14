@@ -53,7 +53,7 @@ public class ThetaDataConnector implements Connector {
             ID,
             "ThetaData (local Theta Terminal)",
             ConnectorSpec.Category.OPTIONS_FLOW,
-            ConnectorSpec.Licence.BYO_PERSONAL,
+            ConnectorSpec.Licence.SELF_HOSTED,
             "Historical US options and equities from ThetaData via your own Theta Terminal running on this "
                     + "machine (calls localhost, default port 25503): stock end-of-day bars, option expirations, "
                     + "option end-of-day prices, end-of-day greeks/IV (Standard plan) and open interest (Value plan).",

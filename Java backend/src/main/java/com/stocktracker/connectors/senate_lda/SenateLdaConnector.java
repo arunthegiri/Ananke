@@ -69,7 +69,8 @@ public class SenateLdaConnector implements Connector {
                     "Optional free key from lda.gov/api/register — raises the limit from 15 to 120 requests a minute. "
                             + "Leave blank to use the API anonymously.", true, true, null)),
             // Anonymous: 15/min per IP; with a key 120/min. Enforce the anonymous ceiling with headroom.
-            List.of(RateLimit.perMinute(12)));
+            List.of(RateLimit.perMinute(12)))
+            .withKeyedLimits(List.of(RateLimit.perMinute(100)));   // documented: 15/min anonymous, 120/min with a key
 
     private final String base;
     private final Clock clock;

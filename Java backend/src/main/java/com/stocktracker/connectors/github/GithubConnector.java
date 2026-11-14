@@ -64,7 +64,8 @@ public class GithubConnector implements Connector {
                     true, true, "github_pat_…")),
             // Unauthenticated: 60/hour, authenticated: 5,000/hour (search: 10 / 30 per minute). The cap here is the
             // per-minute burst; GitHub's own 403/429 rate-limit answers are mapped to RATE_LIMITED.
-            List.of(RateLimit.perMinute(20)));
+            List.of(RateLimit.perMinute(20)))
+            .withKeyedLimits(List.of(RateLimit.perMinute(120), new RateLimit(4_500, java.time.Duration.ofHours(1))));   // 5,000/h with a token
 
     private final Clock clock;
     private final String api;

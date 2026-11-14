@@ -61,7 +61,7 @@ public class KalshiConnector implements Connector {
             "Kalshi",
             ConnectorSpec.Category.PREDICTION_MARKETS,
             // No key; Kalshi's terms grant market data for the user's own (non-commercial) use.
-            ConnectorSpec.Licence.BYO_PERSONAL,
+            ConnectorSpec.Licence.PUBLIC_PERSONAL,
             "Kalshi prediction-market odds on macro and political catalysts — Fed decisions, CPI, payrolls, GDP, "
                     + "recessions, elections, company events. Crowd-implied probabilities, volume and price history "
                     + "to compare against what rates, index and sector pricing already assume.",

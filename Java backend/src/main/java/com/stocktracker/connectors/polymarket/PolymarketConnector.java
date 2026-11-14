@@ -51,7 +51,7 @@ public class PolymarketConnector implements Connector {
             "Polymarket",
             ConnectorSpec.Category.PREDICTION_MARKETS,
             // Keyless public API; Polymarket's terms cover the user's own use, not redistribution.
-            ConnectorSpec.Licence.BYO_PERSONAL,
+            ConnectorSpec.Licence.PUBLIC_PERSONAL,
             "Polymarket prediction-market odds on Fed decisions, inflation, recessions, elections, geopolitics, "
                     + "company and crypto events: implied probabilities, volume, liquidity and price history — "
                     + "a read on what the crowd prices for a catalyst versus what assets already discount.",
