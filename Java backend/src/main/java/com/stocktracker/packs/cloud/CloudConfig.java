@@ -69,6 +69,32 @@ public class CloudConfig {
                 cloudExecutor, d -> Thread.sleep(d.toMillis()), Clock.systemUTC(), timing);
     }
 
+    @Bean
+    public EgressIp egressIp(@Value("${ananke.cloud.egress-ip-url:https://checkip.amazonaws.com}") String url) {
+        return new EgressIp(url);
+    }
+
+    /** The official AWS MCP Server, knowledge tools only (§9.3). Disabled = no MCP tools offered. */
+    @Bean
+    public com.stocktracker.packs.cloud.aws.AwsMcpKnowledge awsMcpKnowledge(
+            @Value("${ananke.cloud.aws.mcp-enabled:true}") boolean enabled,
+            @Value("${ananke.cloud.aws.mcp-endpoint:https://aws-mcp.us-east-1.api.aws/mcp}") String endpoint,
+            @Value("${ananke.cloud.aws.mcp-region:us-east-1}") String region,
+            com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        if (!enabled) return null;
+        return new com.stocktracker.packs.cloud.aws.AwsMcpKnowledge(URI.create(endpoint), region,
+                java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(10)).build(),
+                mapper, Clock.systemUTC());
+    }
+
+    /** Agents get AWS tools only while an AWS account is linked (CloudToolGate checks isLinked). */
+    @Bean
+    public com.stocktracker.packs.cloud.aws.AwsActionToolSource awsActionToolSource(
+            AwsAccounts accounts, AwsMachines machines, EgressIp egress,
+            ObjectProvider<com.stocktracker.packs.cloud.aws.AwsMcpKnowledge> mcp) {
+        return new com.stocktracker.packs.cloud.aws.AwsActionToolSource(accounts, machines, egress, mcp.getIfAvailable());
+    }
+
     /** §7.4 idle auto-stop. Every 5 minutes by default. */
     @Bean
     public IdleSweeper idleSweeper(AwsMachines machines) {

@@ -76,6 +76,8 @@ public class SkillToolset {
         props.put("file", Map.of("type", "string",
                 "description", "Optional: a file inside the skill's directory, e.g. references/provisioning.md. "
                              + "Omit to get SKILL.md."));
+        props.put("offset", Map.of("type", "integer", "minimum", 0,
+                "description", "Optional: continue a long file from this character (use nextOffset from the previous call)."));
         Map<String, Object> params = new LinkedHashMap<>();
         params.put("type", "object");
         params.put("properties", props);
@@ -111,7 +113,12 @@ public class SkillToolset {
             return Map.of("error", "'" + path + "' is not a file in skill " + name
                     + ". Files: " + String.join(", ", skill.filePaths()));
         }
-        String content = path.equals("SKILL.md") ? skill.body() : file.get().content();
+        String full = path.equals("SKILL.md") ? skill.body() : file.get().content();
+        int offset = args.path("offset").canConvertToInt() ? Math.max(0, args.path("offset").asInt()) : 0;
+        if (offset > full.length()) {
+            return Map.of("error", "offset " + offset + " is past the end of " + path + " (" + full.length() + " characters).");
+        }
+        String content = full.substring(offset);
         boolean truncated = content.length() > MAX_CONTENT_CHARS;
         SkillPack pack = registry.pack(skill.packId()).orElseThrow();
 
@@ -122,6 +129,8 @@ public class SkillToolset {
         out.put("notice", NOTICE);
         out.put("content", truncated ? content.substring(0, MAX_CONTENT_CHARS) : content);
         out.put("truncated", truncated);
+        if (offset > 0) out.put("offset", offset);
+        if (truncated) out.put("nextOffset", offset + MAX_CONTENT_CHARS);
         if (path.equals("SKILL.md")) {
             out.put("files", skill.filePaths().stream().filter(f -> !f.equals("SKILL.md")).toList());
         }

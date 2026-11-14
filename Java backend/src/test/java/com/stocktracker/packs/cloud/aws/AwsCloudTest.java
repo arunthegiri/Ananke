@@ -403,4 +403,90 @@ class AwsCloudTest {
         assertThat(vault.has(a.scope(), "aws_access_key_id")).isFalse();
         assertThat(accountRepo.findById(a.getId())).isEmpty();
     }
+
+    // ── #7: agent tools (Packs §9.3) ─────────────────────────────────────────
+
+    com.stocktracker.agent.actions.ActionConfirmationService guardFor(com.stocktracker.agent.actions.CloudToolGate gate) {
+        return new com.stocktracker.agent.actions.ActionConfirmationService(auditRepo, gate,
+                new com.fasterxml.jackson.databind.ObjectMapper(), clock);
+    }
+
+    AwsActionToolSource toolSource() {
+        com.stocktracker.packs.cloud.EgressIp egress = new com.stocktracker.packs.cloud.EgressIp("unused") {
+            @Override public java.util.Optional<String> detect() { return java.util.Optional.of("203.0.113.9"); }
+        };
+        return new AwsActionToolSource(accounts, machines, egress, null);
+    }
+
+    @Test
+    void agentTools_appearOnlyOnceAwsIsLinked_andNeverIncludeStopOrTerminate() {
+        AwsActionToolSource src = toolSource();
+        var gate = new com.stocktracker.agent.actions.CloudToolGate(List.of(src));
+        var kit = new com.stocktracker.agent.AgentCapabilities(null, gate, guardFor(gate));
+
+        assertThat(kit.toolbox(com.stocktracker.agent.AgentProfile.PACK_OPS, null, List.of()).names()).isEmpty();
+        linked();
+        assertThat(kit.toolbox(com.stocktracker.agent.AgentProfile.PACK_OPS, null, List.of()).names()).containsExactly(
+                "aws_list_gpu_types", "aws_estimate_gpu_vm", "aws_list_machines", "aws_provision_gpu_vm", "aws_start_vm");
+    }
+
+    @Test
+    void agentProvision_waitsForAPerson_thenCreatesExactlyWhatWasShown() throws Exception {
+        CloudAccount a = linked();
+        AwsActionToolSource src = toolSource();
+        var gate = new com.stocktracker.agent.actions.CloudToolGate(List.of(src));
+        var guard = guardFor(gate);
+        var box = new com.stocktracker.agent.AgentCapabilities(null, gate, guard)
+                .toolbox(com.stocktracker.agent.AgentProfile.PACK_OPS, null, List.of());
+        var om = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        Object est = box.dispatch("aws_estimate_gpu_vm", om.readTree("{\"region\":\"us-east-1\",\"instanceType\":\"g6.xlarge\"}"));
+        assertThat(((Map<?, ?>) est).get("hourlyUsd")).isEqualTo(0.8048);
+        assertThat(aws.count("run ")).as("an estimate creates nothing").isZero();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> pending = (Map<String, Object>) box.dispatch("aws_provision_gpu_vm",
+                om.readTree("{\"region\":\"us-east-1\",\"instanceType\":\"g6.xlarge\",\"diskGiB\":200}"));
+        assertThat(pending).containsEntry("status", "confirmation_required");
+        assertThat(pending.get("costEstimate")).asString().startsWith("$0.8048/h").contains("200 GiB disk").contains("SSH from 203.0.113.9/32");
+        assertThat(aws.count("run ")).as("nothing until a person confirms").isZero();
+        assertThat(targetRepo.count()).isZero();
+
+        guard.confirm((String) pending.get("actionId"));
+
+        assertThat(aws.launched).singleElement().satisfies(spec -> {
+            assertThat(spec.instanceType()).isEqualTo("g6.xlarge");
+            assertThat(spec.diskGiB()).isEqualTo(200);
+        });
+        assertThat(aws.ingress).singleElement().satisfies(i -> assertThat(i[1]).isEqualTo("203.0.113.9/32"));
+        assertThat(targetRepo.findAll()).singleElement().satisfies(t -> assertThat(t.getStatus()).isEqualTo("HOSTKEY_CONFIRMED"));
+        assertThat(auditRepo.findAll()).extracting(e -> e.getAgent() + ":" + e.getTool() + ":" + e.getEvent()).contains(
+                "pack-ops:aws_provision_gpu_vm:REQUESTED", "pack-ops:aws_provision_gpu_vm:CONFIRMED",
+                "pack-ops:aws_provision_gpu_vm:EXECUTED", "agent:aws_provision_gpu_vm:EXECUTED");
+        assertThatThrownBy(() -> guard.confirm((String) pending.get("actionId"))).isInstanceOf(java.util.NoSuchElementException.class);
+        assertThat(aws.count("run ")).isEqualTo(1);
+    }
+
+    @Test
+    void agentStart_isBillable_andRefusedWhenUnlinkedAtConfirmTime() throws Exception {
+        CloudAccount a = linked();
+        ComputeTarget t = provisioned(a);
+        machines.stop(t.getId(), "user");
+        AwsActionToolSource src = toolSource();
+        var gate = new com.stocktracker.agent.actions.CloudToolGate(List.of(src));
+        var guard = guardFor(gate);
+        var box = new com.stocktracker.agent.AgentCapabilities(null, gate, guard)
+                .toolbox(com.stocktracker.agent.AgentProfile.PACK_OPS, null, List.of());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> pending = (Map<String, Object>) box.dispatch("aws_start_vm",
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree("{\"targetId\":" + t.getId() + "}"));
+        assertThat(pending).containsEntry("status", "confirmation_required");
+        assertThat(pending.get("costEstimate")).asString().contains("$0.8048/hour");
+        long starts = aws.count("start ");
+
+        a.setStatus(CloudAccount.Status.FAILED);           // e.g. the user unlinked / the key was revoked
+        accountRepo.save(a);
+        assertThatThrownBy(() -> guard.confirm((String) pending.get("actionId"))).hasMessageContaining("no longer linked");
+        assertThat(aws.count("start ")).isEqualTo(starts);
+    }
 }

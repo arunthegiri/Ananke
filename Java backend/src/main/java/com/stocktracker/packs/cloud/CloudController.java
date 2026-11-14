@@ -5,22 +5,15 @@ import com.stocktracker.packs.PackController;
 import com.stocktracker.packs.PackException;
 import com.stocktracker.packs.cloud.aws.AwsAccounts;
 import com.stocktracker.packs.cloud.aws.AwsMachines;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Packs build doc §7 — cloud accounts and cloud GPU machines. AWS today.
@@ -30,19 +23,16 @@ import java.util.regex.Pattern;
 @RequestMapping("/api/cloud")
 public class CloudController {
 
-    private static final Pattern IPV4 = Pattern.compile("^\\d{1,3}(\\.\\d{1,3}){3}$");
-
     private final AwsAccounts accounts;
     private final AwsMachines machines;
     private final PackController packController;
-    private final String egressIpUrl;
+    private final EgressIp egress;
 
-    public CloudController(AwsAccounts accounts, AwsMachines machines, PackController packController,
-                           @Value("${ananke.cloud.egress-ip-url:https://checkip.amazonaws.com}") String egressIpUrl) {
+    public CloudController(AwsAccounts accounts, AwsMachines machines, PackController packController, EgressIp egress) {
         this.accounts       = accounts;
         this.machines       = machines;
         this.packController = packController;
-        this.egressIpUrl    = egressIpUrl;
+        this.egress         = egress;
     }
 
     public record AccountView(long id, String cloud, String label, String status, String homeRegion, String externalId,
@@ -98,17 +88,8 @@ public class CloudController {
     /** The backend's public IPv4 — the address SSH comes from, so the VM's security group admits only it. */
     @GetMapping("/egress-ip")
     public Map<String, Object> egressIp() {
-        try {
-            HttpResponse<String> r = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
-                    .send(HttpRequest.newBuilder(URI.create(egressIpUrl)).timeout(Duration.ofSeconds(5)).GET().build(),
-                            HttpResponse.BodyHandlers.ofString());
-            String ip = r.body() == null ? "" : r.body().strip();
-            if (r.statusCode() == 200 && IPV4.matcher(ip).matches()) return Map.of("ip", ip, "cidr", ip + "/32");
-            return Map.of("error", "Unexpected answer from " + egressIpUrl);
-        } catch (Exception e) {
-            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
-            return Map.of("error", "Could not detect the backend's public IP: " + e.getMessage());
-        }
+        return egress.detect().<Map<String, Object>>map(ip -> Map.of("ip", ip, "cidr", ip + "/32"))
+                .orElse(Map.of("error", "Could not detect the backend's public IP via " + egress.url() + "."));
     }
 
     // ── machines ─────────────────────────────────────────────────────────────

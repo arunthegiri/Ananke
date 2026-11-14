@@ -296,6 +296,15 @@ vendor's native Skills feature. Load-bearing rules:
   - Output is wrapped with a notice that it is untrusted reference text.
 - **Skill text can't add tools.** An `AgentToolbox` is built in code per turn and is immutable. Frontmatter like `allowed-tools` is ignored, and an unknown tool name is just an error result.
 - **Cloud action tools** come only from `CloudActionToolSource` beans whose cloud is linked (`CloudToolGate`). None exist until §7, so today no agent is offered any. **Billable** tools never run in the loop: `ActionConfirmationService` parks the call with its cost estimate, a person confirms via `POST /api/agent/actions/{id}/confirm`, and every step is written to `agent_audit_log` (V8) against the Pack. Pending actions are in-memory with a 15-minute TTL; a restart drops them, which fails safe.
+- **AWS action side (#7):**
+  - `AwsActionToolSource` is the first real `CloudActionToolSource`. It's offered only while an AWS account is linked.
+  - Read-only tools: `aws_list_gpu_types`, `aws_estimate_gpu_vm`, `aws_list_machines`.
+  - **Billable** tools: `aws_provision_gpu_vm` (the person confirms the exact estimate, and the VM is created from that estimate id) and `aws_start_vm`.
+  - There are no stop/terminate tools for agents.
+  - `AwsMcpKnowledge` is a SigV4 (`aws-mcp`) streamable-HTTP MCP client for the official AWS MCP Server. It's allowlisted to the 5 read-only knowledge tools, so `aws___run_script` and pre-signed URLs are never exposed; the linked role also denies everything `aws:ViaAWSMCPService`.
+  - `AwsMcpLiveCheck` is an opt-in (`AWS_MCP_LIVE=1`) unsigned check against the real server.
+  - UI: `PendingActions` (Confirm/Reject, polls), `PackAgentDialog` ("Ask agent" on `/packs`) and `PackAudit` (per-Pack trail).
+  - `load_skill` accepts `offset` / returns `nextOffset` for files over 60k characters.
 - **Who composes it:**
   - `CopilotService` **chat** mode composes the kit.
   - **Research** mode keeps exactly its four data tools and prompt, so the Phase-0 baseline is unchanged; `CopilotResearchFixtureTest` still uses the 7-arg constructor.
@@ -435,6 +444,7 @@ Backend-side (`.env`, passed to `stock-tracker` by compose):
 | `ANANKE_AWS_ENDPOINT` / `ANANKE_AWS_PRICING_ENDPOINT` | unset (real AWS) | Cloud §7: emulator overrides (moto / a fake price server) — tests only |
 | `ANANKE_AWS_DLAMI_PARAMETER` | the public DLAMI Ubuntu 22.04 SSM path | Cloud §7: emulators can't hold names under `/aws/` |
 | `ANANKE_AWS_BOOT_TIMEOUT_MINUTES` / `ANANKE_AWS_HOST_KEY_TIMEOUT_MINUTES` | 10 / 10 | Cloud §7: provisioning waits |
+| `ANANKE_AWS_MCP_ENABLED` / `ANANKE_AWS_MCP_ENDPOINT` | `true` / `https://aws-mcp.us-east-1.api.aws/mcp` | #7: AWS MCP knowledge tools for agents (only while AWS is linked) |
 | `ANANKE_EGRESS_IP_URL` | `https://checkip.amazonaws.com` | Cloud §7: the backend's public IP for the VM's SSH rule |
 | `ANANKE_SKILLS_FETCH_DIR` | `./data/skills` | Agent skills: install dir for `distribution: "fetch"` packs (none today) |
 | `ANANKE_SKILLS_SETTINGS_FILE` | `./data/skills-settings.json` | Agent skills: packs switched off in Settings |

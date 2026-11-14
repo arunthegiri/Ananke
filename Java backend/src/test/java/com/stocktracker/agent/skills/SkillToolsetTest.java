@@ -139,4 +139,24 @@ class SkillToolsetTest {
         assertThat(SkillToolset.oneLine("a\n\tb  c", 100)).isEqualTo("a b c");
         assertThat(SkillToolset.oneLine("x".repeat(300), 240)).hasSize(240).endsWith("…");
     }
+
+    @Test
+    void loadSkill_pagesThroughLongFilesWithOffset() throws Exception {
+        TestBundle b = new TestBundle(dir.resolve("big"));
+        String body = "x".repeat(SkillToolset.MAX_CONTENT_CHARS) + "TAIL-SENTINEL";
+        b.pack("big-pack", "azure").skill("big-skill", List.of("compute"),
+                Map.of("SKILL.md", TestBundle.skillMd("big-skill", "Big.", body))).done();
+        SkillToolset big = new SkillToolset(SkillRegistry.fromDirectory(b.write(), null),
+                new SkillSettingsService(dir.resolve("big-settings.json")));
+
+        Map<String, Object> first = big.load(AgentProfile.COPILOT, args("{\"name\":\"big-skill\"}"));
+        assertThat(first).containsEntry("truncated", true).containsEntry("nextOffset", SkillToolset.MAX_CONTENT_CHARS);
+        assertThat(first.get("content")).asString().doesNotContain("TAIL-SENTINEL");
+
+        Map<String, Object> rest = big.load(AgentProfile.COPILOT,
+                args("{\"name\":\"big-skill\",\"offset\":" + SkillToolset.MAX_CONTENT_CHARS + "}"));
+        assertThat(rest).containsEntry("truncated", false).doesNotContainKey("nextOffset");
+        assertThat(rest.get("content")).isEqualTo("TAIL-SENTINEL");
+        assertThat(big.load(AgentProfile.COPILOT, args("{\"name\":\"big-skill\",\"offset\":999999}"))).containsKey("error");
+    }
 }

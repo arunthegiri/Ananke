@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   Check,
+  Bot,
   CircleAlert,
   Cloud,
   Cpu,
@@ -44,6 +45,7 @@ import {
 } from "@/lib/api/packs";
 import { LLM_SETTINGS_KEY } from "@/hooks/useLlmSettings";
 import { AwsCloudDialog } from "@/components/packs/AwsCloudDialog";
+import { PackAgentDialog, PackAudit, PendingActions } from "@/components/packs/AgentActions";
 import { cloudApi, TRANSITIONAL, usd } from "@/lib/api/cloud";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +92,7 @@ function PacksPage() {
   const [newPackOpen, setNewPackOpen] = useState(false);
   const [addMachineOpen, setAddMachineOpen] = useState(false);
   const [cloudOpen, setCloudOpen] = useState(false);
+  const [agentOpen, setAgentOpen] = useState(false);
 
   const select = (id?: number) => navigate({ search: id ? { p: id } : {} });
   const current = packs.data?.find((p) => p.id === selectedId) ?? packs.data?.[0];
@@ -191,7 +194,18 @@ function PacksPage() {
         activeTab="pack"
         className="min-h-0 flex-1"
         bodyClassName="min-h-0 overflow-y-auto"
+        actions={
+          <button
+            type="button"
+            onClick={() => setAgentOpen(true)}
+            className="flex items-center gap-1 px-2 text-xs text-text-secondary hover:text-text-primary"
+            data-testid="open-pack-agent"
+          >
+            <Bot className="h-3.5 w-3.5" /> Ask agent
+          </button>
+        }
       >
+        <PendingActions className="m-3" />
         {current ? (
           <PackDetail
             key={current.id}
@@ -214,6 +228,7 @@ function PacksPage() {
         onCreated={(p) => select(p.id)}
       />
       <AddMachineDialog open={addMachineOpen} onOpenChange={setAddMachineOpen} />
+      <PackAgentDialog open={agentOpen} onOpenChange={setAgentOpen} packId={current?.id ?? null} />
       <AwsCloudDialog
         open={cloudOpen}
         onOpenChange={setCloudOpen}
@@ -993,6 +1008,14 @@ function PackDetail({
 
       <Section title="Model">
         <ProfileSummary profile={p.profile} />
+      </Section>
+
+      <Section title="Cloud & agent activity">
+        <PackAudit packId={p.id} />
+        <p className="text-[10px] text-text-muted">
+          Every billable step (requested, confirmed, executed, failed) for this Pack is recorded
+          here.
+        </p>
       </Section>
 
       <LogsSection packId={packId} status={p.status} updatedAt={p.updatedAt} />
