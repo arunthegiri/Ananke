@@ -60,6 +60,19 @@ public class PackService implements LlmSettingsService.ExternalProviders {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    /** Last time the copilot asked for a Pack's client — drives cloud idle auto-stop (§7.4). In memory. */
+    private final Map<Long, Instant> lastUsed = new java.util.concurrent.ConcurrentHashMap<>();
+    private org.springframework.beans.factory.ObjectProvider<PackRemovalHook> removalHooks;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setRemovalHooks(org.springframework.beans.factory.ObjectProvider<PackRemovalHook> hooks) {
+        this.removalHooks = hooks;
+    }
+
+    public Optional<Instant> lastUsed(long packId) {
+        return Optional.ofNullable(lastUsed.get(packId));
+    }
+
     private final ExecutorService deployer = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "pack-deploy");
         t.setDaemon(true);
@@ -339,6 +352,17 @@ public class PackService implements LlmSettingsService.ExternalProviders {
         if (("pack:" + id).equals(settings.activeProvider())) settings.clearActive();
         vault.deleteScope(p.scope());
         packs.delete(p);
+        lastUsed.remove(id);
+        ComputeTarget target = p.getComputeTargetId() == null ? null : targets.findById(p.getComputeTargetId()).orElse(null);
+        if (removalHooks != null && target != null) {
+            removalHooks.orderedStream().forEach(h -> {
+                try {
+                    h.afterPackRemoved(p, target);
+                } catch (RuntimeException e) {
+                    log.warn("Pack {} removal hook failed: {}", id, e.getMessage());
+                }
+            });
+        }
     }
 
     public Map<String, Object> healthNow(long id) {
@@ -416,6 +440,7 @@ public class PackService implements LlmSettingsService.ExternalProviders {
             long id = Long.parseLong(providerId.substring(5));
             Pack p = packs.findById(id).orElse(null);
             if (p == null || p.getStatus() != Pack.Status.RUNNING) return Optional.empty();
+            lastUsed.put(id, Instant.now());
             return vault.get(p.scope(), API_KEY).map(k -> client(p, k));
         } catch (Exception e) {
             return Optional.empty();

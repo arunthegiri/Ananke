@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Ananke Packs (build doc §7.1): scoped access for one self-hosted Ananke backend to provision
+  GPU VMs for Packs. Creates an IAM role Ananke assumes with an external ID, and an IAM user that
+  can do nothing except assume that role. Every EC2 resource Ananke may create or touch must carry
+  the tag ananke-managed=true. Nothing in this stack runs code or costs money by itself.
+
+Parameters:
+  ExternalId:
+    Type: String
+    MinLength: 16
+    MaxLength: 64
+    AllowedPattern: "[A-Za-z0-9_+=,.@:/-]+"
+    Description: The external ID shown by Ananke when you started linking (confused-deputy protection).
+  RoleName:
+    Type: String
+    Default: AnankePacksRole
+    AllowedPattern: "[A-Za-z0-9_+=,.@-]+"
+  UserName:
+    Type: String
+    Default: ananke-packs
+    AllowedPattern: "[A-Za-z0-9_+=,.@-]+"
+
+Resources:
+  AnankeUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref UserName
+      Policies:
+        - PolicyName: assume-ananke-role-only
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: sts:AssumeRole
+                Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${RoleName}"
+
+  AnankeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !GetAtt AnankeUser.Arn
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: ananke-packs-gpu-vms
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: LaunchOnlyTaggedInstances
+                Effect: Allow
+                Action: ec2:RunInstances
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*"
+                  - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+                  - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*"
+                Condition:
+                  StringEquals:
+                    aws:RequestTag/ananke-managed: "true"
+              - Sid: LaunchSupportingResources
+                Effect: Allow
+                Action: ec2:RunInstances
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:ec2:*::image/*"
+                  - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:subnet/*"
+                  - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:security-group/*"
+              - Sid: CreateTaggedSecurityGroup
+                Effect: Allow
+                Action: ec2:CreateSecurityGroup
+                Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:security-group/*"
+                Condition:
+                  StringEquals:
+                    aws:RequestTag/ananke-managed: "true"
+              - Sid: CreateSecurityGroupInVpc
+                Effect: Allow
+                Action: ec2:CreateSecurityGroup
+                Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:vpc/*"
+              - Sid: TagOnlyWhileCreating
+                Effect: Allow
+                Action: ec2:CreateTags
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    ec2:CreateAction:
+                      - RunInstances
+                      - CreateSecurityGroup
+              - Sid: ManageOnlyAnankeResources
+                Effect: Allow
+                Action:
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                  - ec2:TerminateInstances
+                  - ec2:GetConsoleOutput
+                  - ec2:AuthorizeSecurityGroupIngress
+                  - ec2:RevokeSecurityGroupIngress
+                  - ec2:DeleteSecurityGroup
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    ec2:ResourceTag/ananke-managed: "true"
+              - Sid: ReadOnly
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeImages
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeRegions
+                  - ec2:DescribeInstanceTypes
+                  - pricing:GetProducts
+                Resource: "*"
+              - Sid: DeepLearningAmiParameters
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub "arn:${AWS::Partition}:ssm:*::parameter/aws/service/deeplearning/*"
+              - Sid: NothingThroughTheAwsMcpServer
+                Effect: Deny
+                Action: "*"
+                Resource: "*"
+                Condition:
+                  Bool:
+                    aws:ViaAWSMCPService: "true"
+
+Outputs:
+  RoleArn:
+    Description: Paste into Ananke.
+    Value: !GetAtt AnankeRole.Arn
+  UserName:
+    Description: Create ONE access key for this user (IAM → Users → Security credentials) and paste it into Ananke.
+    Value: !Ref AnankeUser

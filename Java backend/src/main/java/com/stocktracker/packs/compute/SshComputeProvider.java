@@ -90,6 +90,12 @@ public class SshComputeProvider implements ComputeProvider {
         if ("UNVERIFIED".equals(t.getStatus())) {
             throw new PackException(SSH_HOSTKEY, "Confirm the machine's host key fingerprint before connecting.");
         }
+        // Cloud VMs (§7) pass through here too once provisioned; until then there is nothing to reach.
+        if (t.getHostKey() == null || java.util.Set.of("PROVISIONING", "STOPPED", "STOPPING", "STARTING", "TERMINATING")
+                .contains(t.getStatus())) {
+            throw new PackException(SSH_UNREACHABLE, "This machine is " + t.getStatus().toLowerCase()
+                    + "; start it (or wait for it) before deploying.");
+        }
         String key = vault.get(t.scope(), KEY_KIND).orElseThrow(() ->
                 new PackException(SSH_AUTH, "No SSH key is stored for this machine; re-add it."));
         return new SshCredentials(t.getHost(), t.getPort(), t.getUsername(), t.getHostKey(), key);

@@ -48,7 +48,9 @@ public class PackController {
 
     public record TargetView(long id, String provider, String label, String host, int port, String username,
                              String hostKeyFingerprint, String status, Map<String, Object> lastProbe,
-                             String lastProbeAt, String keyHint) { }
+                             String lastProbeAt, String keyHint,
+                             Long cloudAccountId, String cloudRegion, String cloudInstanceId,
+                             Map<String, Object> cloudMeta, Integer idleStopMinutes, Long ownerPackId) { }
 
     public record ProviderInfo(String id, String label, boolean canProvision, boolean available, String note) { }
 
@@ -123,8 +125,11 @@ public class PackController {
     public static List<ProviderInfo> providerList(SshComputeProvider ssh) {
         return List.of(
                 new ProviderInfo(ssh.id(), ssh.label(), false, true, "Any Linux machine with an NVIDIA GPU you can SSH into."),
-                new ProviderInfo("aws", "AWS (EC2 GPU)", true, false, "Account linking and provisioning are not built yet."),
-                new ProviderInfo("gcp", "Google Cloud (GCE GPU)", true, false, "Account linking and provisioning are not built yet."));
+                new ProviderInfo("aws", "AWS (EC2 GPU)", true, true,
+                        "Link an AWS account, then create a GPU VM after reviewing its cost estimate. Built and tested "
+                        + "against an AWS emulator; not yet run against a real AWS account."),
+                new ProviderInfo("gcp", "Google Cloud (GCE GPU)", true, false, "Account linking and provisioning are not built yet."),
+                new ProviderInfo("azure", "Azure (GPU VM)", true, false, "Account linking and provisioning are not built yet."));
     }
 
     @GetMapping("/compute/targets")
@@ -150,6 +155,10 @@ public class PackController {
 
     @DeleteMapping("/compute/targets/{id}")
     public ResponseEntity<Void> removeTarget(@PathVariable long id) {
+        ComputeTarget t = targets.findById(id).orElseThrow(() -> new java.util.NoSuchElementException("Compute target not found"));
+        if ("aws".equals(t.getProvider())) {
+            throw new IllegalArgumentException("AWS machines are terminated with POST /api/cloud/aws/machines/" + id + "/terminate.");
+        }
         packs.removeTarget(id);
         return ResponseEntity.noContent().build();
     }
@@ -167,6 +176,10 @@ public class PackController {
 
     // ── mapping ──────────────────────────────────────────────────────────────
 
+    public TargetView targetView(ComputeTarget t) {
+        return view(t);
+    }
+
     private PackView view(Pack p) {
         return new PackView(p.getId(), p.getName(), p.getHfRepo(), p.getHfRevision(), packs.profile(p),
                 p.isTrustRemoteCode(), p.getLaunchConfig(), p.getComputeTargetId(), p.getStatus().name(), p.getPhase(),
@@ -178,6 +191,8 @@ public class PackController {
         return new TargetView(t.getId(), t.getProvider(), t.getLabel(), t.getHost(), t.getPort(), t.getUsername(),
                 t.getHostKeyFingerprint(), t.getStatus(), t.getLastProbe(),
                 t.getLastProbeAt() == null ? null : t.getLastProbeAt().toString(),
-                vault.hintFor(t.scope(), "ssh_public_key").orElse(null));
+                vault.hintFor(t.scope(), "ssh_public_key").orElse(null),
+                t.getCloudAccountId(), t.getCloudRegion(), t.getCloudInstanceId(), t.getCloudMeta(),
+                t.getIdleStopMinutes(), t.getOwnerPackId());
     }
 }
