@@ -217,8 +217,10 @@ public final class SkillRegistry {
         }
         SkillFile skillMd = files.get("SKILL.md");
         if (skillMd == null) {
-            errors.add(where + ": SKILL.md missing");
-            return null;
+            boolean listed = false;
+            for (JsonNode f : s.path("files")) listed |= "SKILL.md".equals(f.path("path").asText());
+            if (!listed) errors.add(where + ": SKILL.md missing from the manifest");
+            return null;     // when listed, the failed read/checksum was already reported
         }
 
         Frontmatter fm = parseFrontmatter(skillMd.content(), where, errors);

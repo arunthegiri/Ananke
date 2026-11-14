@@ -113,6 +113,7 @@ src/
     backtesting/    ← backtesting sub-components (TradeLog on §8 TerminalTable via presets/trades.ts — single-line rows, no prices; RunHistory)
     ui/             ← shadcn/ui components (don't edit manually — use shadcn CLI)
   hooks/
+    useAgentSkills.ts ← Packs §9 Settings → Agent skills: packs, per-pack toggle, per-agent visibility
     useChartBase.ts ← shared chart lifecycle: chartOptions(), toTs, chart create/destroy; registers each chart with the §13.4 ChartThemeRegistry
     useChartTheme.ts ← reactive §3.4 chart theme for components (re-resolves on theme/convention/cb attribute change)
     useThemePrefs.ts ← useSyncExternalStore binding for the §13 theme store (server snapshot = root loader value)
@@ -266,6 +267,34 @@ over SSH on stdin with validated args. Load-bearing rules:
   because the copilot always sends tools.
 - The backend image installs `openssh-client` (Dockerfile); Packs use the system `ssh`, not a JVM lib.
 - AWS/GCP: listed by `/api/compute/providers` as `available:false`. Do not fake provisioning.
+- Cloud agent skills for Pack operations: see "Agent skills (Packs build doc §9)" below.
+
+### Agent skills (Packs build doc §9)
+
+The official AWS / Google Cloud / Azure `SKILL.md` skills reach the copilot **and every Ananke
+agent** through one provider-agnostic kit in `com.stocktracker.agent`. They work with any model
+behind `LLMClient`, because they're plain tool calls on the OpenAI-shaped loop and never use a
+vendor's native Skills feature. Load-bearing rules:
+- **The bundle is pinned and checksummed.**
+  - `scripts/skills/sources.json` lists the curated skills: official repos only, each pinned to a commit, with its licence recorded.
+  - `node scripts/skills/vendor-skills.mjs` fetches docs only (`.md`/`.txt`; no scripts, IaC, hooks or telemetry). It checks each file's git blob SHA against the pinned tree and writes `Java backend/src/main/resources/skills/` plus `manifest.json` with a sha256 per file.
+  - **Never hand-edit or reformat that directory.** `.prettierignore` and `.gitattributes -text` protect it.
+  - Bumping a commit means reviewing the upstream diff, then re-running the script.
+  - A pack whose licence forbids redistribution is `distribution: "fetch"`: it's checksummed in the manifest but not committed, and installed with `vendor-skills.mjs install <ananke.skills.fetch-dir>`.
+- **`SkillRegistry` fails startup.** Any bad frontmatter, checksum mismatch, unpinned commit, duplicate name, unsafe path or missing file throws `SkillBundleException`, and the backend doesn't boot (every problem is listed). `ananke.skills.bundle-dir` swaps in a whole bundle from disk under the same rules.
+- **Discovery and loading.**
+  - `AgentCapabilities.systemPrompt(base, profile)` appends a one-line-per-skill index, filtered by the `AgentProfile` topics. `COPILOT` sees all enabled skills; `PACK_OPS` sees compute/gpu/cost/identity/cli.
+  - `load_skill(name, file?)` returns the SKILL.md body without its frontmatter, or a manifest-listed file. Anything else is refused, including `..`, absolute paths, `%`, backslashes and empty segments.
+  - Output is wrapped with a notice that it is untrusted reference text.
+- **Skill text can't add tools.** An `AgentToolbox` is built in code per turn and is immutable. Frontmatter like `allowed-tools` is ignored, and an unknown tool name is just an error result.
+- **Cloud action tools** come only from `CloudActionToolSource` beans whose cloud is linked (`CloudToolGate`). None exist until §7, so today no agent is offered any. **Billable** tools never run in the loop: `ActionConfirmationService` parks the call with its cost estimate, a person confirms via `POST /api/agent/actions/{id}/confirm`, and every step is written to `agent_audit_log` (V8) against the Pack. Pending actions are in-memory with a 15-minute TTL; a restart drops them, which fails safe.
+- **Who composes it:**
+  - `CopilotService` **chat** mode composes the kit.
+  - **Research** mode keeps exactly its four data tools and prompt, so the Phase-0 baseline is unchanged; `CopilotResearchFixtureTest` still uses the 7-arg constructor.
+  - The read-only Pack agent is `packs/agent/PackOpsAgent` (`POST /api/packs/agent/chat`).
+  - A new agent should be `agents.toolbox(profile, packId, ownTools)` + `AgentToolLoop.run(...)`, not a new loop.
+- **API and UI:** `GET /api/skills/packs`, `PUT /api/skills/packs/{id} {enabled}` (persisted to `ananke.skills.settings-file`), and `GET /api/skills/agents`. The UI lives in Settings → Agent skills (`?section=skills`).
+- **Tests (offline):** `SkillRegistryTest`, `SkillToolsetTest`, `CloudActionGatingTest`, and `AgentSkillsOfflineTest`, where a scripted `LLMClient` calls `load_skill` on the real bundle and answers from it, through both agents.
 
 ### Copilot V1 regression baseline (Phase 0)
 
@@ -395,6 +424,9 @@ Backend-side (`.env`, passed to `stock-tracker` by compose):
 | `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset / `https://api.anthropic.com` / `claude-sonnet-4-5` | Used only when `LLM_PROVIDER=anthropic` |
 | `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | Legacy names — still read as fallbacks when the `LLM_*` vars above are unset |
 | `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where the Java container reaches `executor.py` |
+| `ANANKE_SKILLS_FETCH_DIR` | `./data/skills` | Agent skills: install dir for `distribution: "fetch"` packs (none today) |
+| `ANANKE_SKILLS_SETTINGS_FILE` | `./data/skills-settings.json` | Agent skills: packs switched off in Settings |
+| `ANANKE_SKILLS_BUNDLE_DIR` | unset | Agent skills: load a whole bundle from disk instead of the jar (same checksum rules) |
 | `ANANKE_SECRET_KEY` | unset | Packs: base64 32-byte master key for encrypted credentials. Unset = generated key file on the data volume |
 | `ANANKE_VLLM_VERSION` | `0.11.0` | Packs: vLLM version installed on machines (pinned) |
 | `ANANKE_PACKS_HEALTH_TIMEOUT_MINUTES` / `ANANKE_PACKS_DEPLOY_TIMEOUT_MINUTES` | `30` / `90` | Packs: model-load and install/download limits |
