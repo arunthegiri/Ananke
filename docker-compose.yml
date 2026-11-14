@@ -33,6 +33,10 @@ services:
       DB_USERNAME:           postgres
       DB_PASSWORD:           postgres
       FETCH_INTERVAL_MS:     60000
+      # Copilot provider/model/API keys saved from the Settings UI.
+      ANANKE_SETTINGS_FILE:  /app/data/llm-settings.json
+    volumes:
+      - ananke_settings:/app/data
     ports:
       - "8080:8080"
 
@@ -82,3 +86,4 @@ services:
 
 volumes:
   timescale_data:
+  ananke_settings:

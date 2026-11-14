@@ -1,5 +1,6 @@
 package com.stocktracker.service;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,12 +19,24 @@ import org.springframework.context.annotation.Primary;
  * eventually gets real user accounts, this is the one class that changes:
  * replace the env-read here with a per-request/per-tenant resolver and nothing
  * in CopilotService or CopilotController needs to move.
+ *
+ * The {@code @Primary} client is {@link SettingsAwareLLMClient}: a provider and
+ * model chosen in the Settings UI take precedence, and the env-configured
+ * {@code llmClient} below is the fallback when nothing usable is saved there.
  */
 @Configuration
 public class LlmProviderConfig {
 
     @Bean
     @Primary
+    public SettingsAwareLLMClient copilotLlmClient(
+            LlmSettingsService settings,
+            @Qualifier("llmClient") LLMClient envClient) {
+        return new SettingsAwareLLMClient(settings, envClient);
+    }
+
+    /** The environment-configured provider ({@code .env}); the fallback for {@link #copilotLlmClient}. */
+    @Bean
     public LLMClient llmClient(
             @Value("${llm.provider:openai_compatible}") String provider,
             KimiClient openAiCompatibleClient,

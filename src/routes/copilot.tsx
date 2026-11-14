@@ -7,6 +7,8 @@ import { SegmentedControl } from "@/components/terminal/controls/SegmentedContro
 import { CodeBlock } from "@/components/copilot/CodeBlock";
 import { BacktestCard } from "@/components/copilot/BacktestCard";
 import { CopilotMarkdown } from "@/components/copilot/CopilotMarkdown";
+import { ModelPicker } from "@/components/copilot/ModelPicker";
+import { openAiSettings } from "@/lib/ai-settings-dialog";
 import { useCopilotChat, type CopilotTurn } from "@/hooks/useCopilotChat";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +54,7 @@ function CopilotPage() {
         bodyClassName="flex min-h-0 flex-col"
         actions={
           <div className="flex items-center gap-2">
+            <ModelPicker />
             <SegmentedControl
               options={MODES}
               value={mode}
@@ -213,6 +216,7 @@ function EmptyState({
         art="plug"
         message="Copilot is not configured"
         detail={[unavailable]}
+        action={{ label: "Set up AI provider", onClick: () => openAiSettings() }}
       />
     );
   }

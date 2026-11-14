@@ -1,4 +1,6 @@
-import { Settings } from "lucide-react";
+import { ChevronRight, Cpu, Settings } from "lucide-react";
+
+import { useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { THEMES, setThemePrefs, type MarketConvention, type ThemeId } from "@/lib/theme";
 import { useThemePrefs } from "@/hooks/useThemePrefs";
+import { openAiSettings } from "@/lib/ai-settings-dialog";
 
 /**
  * §13.3 settings popover — theme picker for the four themes plus the two
@@ -23,9 +26,10 @@ import { useThemePrefs } from "@/hooks/useThemePrefs";
  */
 export function ThemeSettings() {
   const prefs = useThemePrefs();
+  const [open, setOpen] = useState(false);
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -109,6 +113,20 @@ export function ThemeSettings() {
               onCheckedChange={(v) => setThemePrefs({ cb: v })}
             />
           </div>
+
+          <button
+            type="button"
+            data-testid="open-ai-settings"
+            onClick={() => {
+              setOpen(false);
+              openAiSettings();
+            }}
+            className="-mx-1 flex items-center gap-2 rounded-md border-t border-border-subtle px-1 pt-3 text-left text-xs text-text-primary hover:text-primary"
+          >
+            <Cpu className="h-3.5 w-3.5 text-text-muted" />
+            <span className="flex-1">AI provider & API keys</span>
+            <ChevronRight className="h-3.5 w-3.5 text-text-muted" />
+          </button>
         </div>
       </PopoverContent>
     </Popover>

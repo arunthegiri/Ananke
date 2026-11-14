@@ -60,9 +60,8 @@ public class CopilotController {
     private void requireCopilot() {
         if (!llmClient.isConfigured()) {
             throw new LLMClient.LLMUnavailableException(
-                    "Copilot is unavailable: no LLM provider has credentials. Set ANTHROPIC_API_KEY "
-                    + "(anthropic) or LLM_API_KEY / KIMI_API_KEY (openai_compatible) in the project .env "
-                    + "and restart stock-tracker.");
+                    "Copilot is unavailable: no AI provider is set up. Open Settings → AI provider, "
+                    + "pick a provider and paste its API key (or set one in the project .env).");
         }
     }
 }

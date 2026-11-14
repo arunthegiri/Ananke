@@ -63,7 +63,8 @@ async function openStream(
   if (res.status === 503) {
     const detail = await res.json().catch(() => null);
     throw new CopilotUnavailableError(
-      detail?.message ?? "Copilot is unavailable: the backend has no KIMI_API_KEY configured.",
+      detail?.message ??
+        "Copilot is unavailable: no AI provider is set up. Open Settings → AI provider and add an API key.",
     );
   }
   if (!res.ok) {
