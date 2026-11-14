@@ -1,12 +1,32 @@
 import { useMemo } from "react";
 import { useSyncExternalStore } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { LineChart, Database, History, Activity, Gauge, Brain, TerminalSquare } from "lucide-react";
+import {
+  LineChart,
+  Database,
+  History,
+  Activity,
+  Gauge,
+  Brain,
+  Sparkles,
+  TerminalSquare,
+  Settings,
+  Package,
+} from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEndpointStatus, subscribeProbe, type EndpointName } from "@/lib/api/health-probe";
 import { cn } from "@/lib/utils";
 
-type NavRoute = "/" | "/data" | "/backtesting" | "/live" | "/metrics" | "/models";
+type NavRoute =
+  | "/"
+  | "/data"
+  | "/backtesting"
+  | "/live"
+  | "/metrics"
+  | "/models"
+  | "/copilot"
+  | "/packs"
+  | "/settings";
 
 type NavItem = {
   to: NavRoute;
@@ -16,13 +36,18 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
+  { to: "/copilot", label: "Copilot", icon: Sparkles },
   { to: "/", label: "Charts", icon: LineChart, exact: true },
   { to: "/data", label: "Data", icon: Database },
   { to: "/backtesting", label: "Backtesting", icon: History },
   { to: "/live", label: "Live", icon: Activity },
   { to: "/metrics", label: "Metrics", icon: Gauge },
   { to: "/models", label: "Models", icon: Brain },
+  { to: "/packs", label: "Packs", icon: Package },
 ];
+
+/** Pinned to the bottom of the rail, macOS-style. */
+const FOOTER_NAV: NavItem[] = [{ to: "/settings", label: "Settings", icon: Settings }];
 
 /** Default (empty) badge map — AppSidebarWithHealth below supplies the live one. */
 const NO_NOTIFICATIONS: Partial<Record<NavRoute, boolean>> = {};
@@ -83,7 +108,8 @@ export function AppSidebar({ notifications = NO_NOTIFICATIONS }: AppSidebarProps
 
       <TooltipProvider delayDuration={200}>
         <nav className="flex flex-1 flex-col gap-0.5 py-2">
-          {NAV.map((item) => {
+          {[...NAV, null, ...FOOTER_NAV].map((item) => {
+            if (!item) return <div key="spacer" className="flex-1" />;
             const Icon = item.icon;
             const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
             return (

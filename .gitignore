@@ -73,3 +73,9 @@ __pycache__/
 Java backend copy/
 Java backend copy.zip
 pipelinefix/
+
+# Desktop (Electron) build outputs
+dist-electron/
+desktop/web/
+desktop/release/
+landing/downloads/

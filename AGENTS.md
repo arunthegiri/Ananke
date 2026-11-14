@@ -22,7 +22,15 @@ npm run format       # Prettier (write)
 npm run test:visual        # Playwright visual + behavioural suite (build doc §2 harness)
 npm run test:visual:update # …re-record baselines (review every diff in the PR)
 npm run test:unit          # plain-node unit tests: chart theme, calendar, correlation, distributions
+npm run test:backend       # Java backend tests (JUnit + Testcontainers) via maven:3.9-eclipse-temurin-17 in Docker
+npm run test:executor      # stdlib unittest for executor/executor.py
 ```
+
+There is no local Maven: `test:backend` mounts `Java backend/` and `~/.m2` into a Maven container
+and hands it the host Docker socket so Testcontainers can start `postgres:16-alpine`
+(`TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` lets the containerised JVM reach it). Run it
+from the repo root. Surefire prints "Surefire is going to kill self fork JVM … 30 seconds after
+System.exit(0)" at the end — pre-existing, harmless, the build still reports SUCCESS.
 
 The visual harness stubs every `/api/*` call (`tests/visual/fixtures.ts`) and fails a test if any
 request escapes the stub set, so the suite never needs the Spring backend running. Beyond
@@ -105,6 +113,7 @@ src/
     backtesting/    ← backtesting sub-components (TradeLog on §8 TerminalTable via presets/trades.ts — single-line rows, no prices; RunHistory)
     ui/             ← shadcn/ui components (don't edit manually — use shadcn CLI)
   hooks/
+    useAgentSkills.ts ← Packs §9 Settings → Agent skills: packs, per-pack toggle, per-agent visibility
     useChartBase.ts ← shared chart lifecycle: chartOptions(), toTs, chart create/destroy; registers each chart with the §13.4 ChartThemeRegistry
     useChartTheme.ts ← reactive §3.4 chart theme for components (re-resolves on theme/convention/cb attribute change)
     useThemePrefs.ts ← useSyncExternalStore binding for the §13 theme store (server snapshot = root loader value)
@@ -161,6 +170,221 @@ Feature-flagged and backend-gated: with `VITE_WS_ENABLED` unset, `startRealtime(
 - **B7 latency / B9 distributions** — token-native DOM, no chart library. B7's endpoint does not exist, so `pending` with the exact contract is its normal state today.
 - Pure halves are unit-tested in plain node (`npm run test:unit`): calendar windows, correlation math, distribution bucketing (all ET-anchored).
 
+### Copilot (copilot build doc M0–M8)
+
+`/copilot` turns one prompt into a saved, backtested strategy. The copilot **orchestrates**
+Ananke — it never reimplements it. Pipeline, all of it streamed to the browser as SSE:
+
+```
+prompt → LLM tool loop (list_symbols / search_symbols / add_symbol / get_price_data)
+       → generated Python  → executor/executor.py in the JUPYTER container
+       → k.export() POSTs back to /api/strategies  → BacktestEngineService re-run
+       → LLM explanation   → stored on backest_results.copilot_explanation
+```
+
+"LLM" here is a swappable seam, not one vendor — see the BYOK bullet below.
+
+Why the pieces sit where they do:
+
+- **Code runs in Jupyter, not Java.** The SDK is installed there. `executor/executor.py` is a
+  stdlib-only HTTP server (no Flask) on port 5000 alongside JupyterLab, mounted from `./executor`.
+  It speaks `POST /execute {code}` → `{stdout, stderr, returncode}`, 504s past 120s, and cleans up
+  its temp file even on timeout. It reads **chunked** request bodies — Spring's `RestClient` sends
+  `Transfer-Encoding: chunked`, and a Content-Length-only reader sees an empty body.
+- **The strategy name comes from stdout.** `k.export()` prints `Kairos '<name>' exported
+  successfully`; `CopilotService` parses that rather than guessing, falling back to the `name=`
+  literal in the source.
+- **The system prompt pins the real SDK contract.** `get_data(symbol, start, end, interval)` is
+  positional (`from` is a reserved Python keyword), `k.run()` must precede `k.export()`, and the
+  `symbol` column is opt-in via `columns=`. A generic LLM gets all three wrong.
+- **Strategy types are constrained to `rsi_crossover` / `ema_crossover`.** Those are the only two
+  `BacktestEngineService` can re-run; anything else throws `UnsupportedOperationException`. The
+  prompt requires `params={'type': …}` so the strategy is also re-runnable from the Backtesting
+  page. If the engine still refuses, the flow **falls back** to the run `k.export()` already
+  persisted rather than failing work that already succeeded (`usedExportedResult` in the `done`
+  event; the UI badges it "SDK run").
+- **The engine never persists.** `BacktestEngineService.run()` returns a DTO and saves nothing, so
+  `StrategyService.persistRun()` writes the copilot's run and `attachExplanation()` stores the
+  analysis against it.
+- **The LLM provider is bring-your-own-key, not hardcoded.** `CopilotService` depends on the
+  `LLMClient` interface, never a concrete client, and its tool loop is written once against the
+  OpenAI chat-completion wire shape (`choices[0].message`, `finish_reason`, `tool_calls[]`).
+  `KimiClient` (name is historical — it's a generic OpenAI-compatible implementation) serves that
+  shape directly, which means it also serves OpenAI, Groq, Together, DeepSeek, OpenRouter, and any
+  local model server exposing an OpenAI-compatible `/chat/completions` endpoint (Ollama, LM Studio,
+  vLLM, llama.cpp server, text-generation-webui, koboldcpp — swap providers with `LLM_BASE_URL`
+  alone, and leave `LLM_API_KEY` blank for a local server that doesn't check it).
+  `AnthropicClient` implements the same interface for Anthropic's Messages API, translating in both
+  directions at its own boundary: system-role turns become the top-level `system` string, an
+  assistant turn's `tool_calls` become `tool_use` content blocks, `role:"tool"` results become a
+  `tool_result` block inside a `user` message (consecutive results are merged into one user turn —
+  Anthropic expects all results for one assistant turn together), and the response's `content`
+  blocks / `stop_reason` are synthesized back into `choices[0].message` / `finish_reason` so
+  `CopilotService`'s loop never has to know which provider answered. `LlmProviderConfig` picks the
+  active `LLMClient` bean from `llm.provider` at startup — single global config (Ananke has no
+  user/tenant model yet), so adding real per-user BYOK later is a new resolver in that one class,
+  not a rewrite of the tool loop.
+- **Results are DB-backed.** `runHistory` in `backtesting.tsx` is in-memory and dies on reload;
+  `/backtesting?tab=results&strategy=<name>` hydrates from `GET /api/strategies/{name}/results` and
+  merges those rows behind the session's own, which is what makes a copilot run survive a refresh.
+
+Gotchas found while building it, all fixed but easy to reintroduce:
+
+- `CopilotService` must inject **Spring's** `ObjectMapper`. A bare `new ObjectMapper()` has no
+  JSR-310 module and every `Instant` in the backtest payload fails to serialise — silently, as an
+  `{"error":"serialisation failed"}` frame.
+- Return `SseEmitter` **directly** from the controller. Wrapping it in `ResponseEntity` produces
+  `No converter for SseEmitter`; the 503 for a missing/misconfigured provider is thrown as
+  `LLMClient.LLMUnavailableException` and mapped in `GlobalExceptionHandler` (`KimiClient` still has
+  a deprecated `KimiUnavailableException` subclass for source compatibility — nothing should throw
+  it anymore).
+- Do not send `temperature` when calling Kimi's `k3` model on the coding endpoint — it rejects
+  anything but `1`. `KimiClient` (the generic OpenAI-compatible `LLMClient`) deliberately omits it
+  entirely rather than special-casing one model.
+- The Python SDK posts **snake_case** `from_ts`/`to_ts`; `ApiDto.StrategyRequest` needs
+  `@JsonAlias`, and the values are `str(pd.Timestamp)` ("2024-06-03 08:00:00+00:00"), which
+  `Instant.parse` rejects — hence `StrategyService.parseFlexible`.
+- **There are two `docker-compose.yml` files** (repo root and `Java backend/`). Always build with
+  `docker compose -f ./docker-compose.yml --project-directory . build stock-tracker`; a bare
+  `docker compose` from the wrong cwd builds `javabackend-stock-tracker` and leaves the running
+  `anake-stock-tracker` untouched, so fixes appear to have no effect.
+
+### Ananke Packs (Dev-notes/Ananke Packs Build Doc.md)
+
+`/packs` turns a Hugging Face model into a copilot provider running on the user's own GPU machine.
+Backend lives in `com.stocktracker.packs` (resolver → compute provider → remote runtime → service →
+controller); the only code that ever runs on a machine is `resources/packs/vllm-bootstrap.sh`, sent
+over SSH on stdin with validated args. Load-bearing rules:
+- **Secrets** (SSH keys, HF tokens, vLLM API keys) go through `SecretVault` (AES-256-GCM, table
+  `ananke_secrets`, master key `ANANKE_SECRET_KEY` or a generated `0600` key file). Never add a
+  column, log line or API field that carries one in plaintext. Changing the master key makes stored
+  secrets undecryptable (by design; the API says so).
+- **Revisions are SHAs.** Profiles are read and weights downloaded at the pinned commit, never `main`.
+- **Remote code is opt-in per Pack**, and deploy refuses without it when the repo needs it.
+- **vLLM binds 127.0.0.1**; the backend reaches it through an `ssh -L` tunnel. The Pack registers as
+  provider `pack:<id>` through `LlmSettingsService.ExternalProviders` — the copilot code is unchanged.
+- **Tool calling is probed, not assumed.** "Use for Copilot" is refused unless the live probe passed,
+  because the copilot always sends tools.
+- The backend image installs `openssh-client` (Dockerfile); Packs use the system `ssh`, not a JVM lib.
+- **Cloud machines (build doc §7.5, `com.stocktracker.packs.cloud`)**: AWS is built and verified only
+  against emulators. GCP and Azure are listed as `available:false`; don't fake them. Rules:
+  - Every AWS call goes through `AwsGateway` (fake in `AwsCloudTest`, moto in `SdkAwsGatewayMotoTest`), using AssumeRole sessions from the linked account's vault-stored key. **Never** use the default credential chain.
+  - Nothing billable happens without a fresh, single-use, acknowledged estimate (`provision(estimateId, acknowledgeBilling)`), and every create/start/stop/terminate writes `agent_audit_log` against the Pack.
+  - The host key comes from `GetConsoleOutput`, never a network scan, and no key means terminate.
+  - Resources must carry `ananke-managed=true` + `ananke-link=<link tag>`; the IAM template only allows touching tagged resources.
+  - The orphan finder only lists.
+  - `ananke-access.yaml` is the security boundary: change it only with cfn-lint and a re-review.
+  - Test literals must not look like AWS keys (GitHub push protection blocks them): build them at runtime.
+- Cloud agent skills for Pack operations: see "Agent skills (Packs build doc §9)" below.
+
+### Agent skills (Packs build doc §9)
+
+The official AWS / Google Cloud / Azure `SKILL.md` skills reach the copilot **and every Ananke
+agent** through one provider-agnostic kit in `com.stocktracker.agent`. They work with any model
+behind `LLMClient`, because they're plain tool calls on the OpenAI-shaped loop and never use a
+vendor's native Skills feature. Load-bearing rules:
+- **The bundle is pinned and checksummed.**
+  - `scripts/skills/sources.json` lists the curated skills: official repos only, each pinned to a commit, with its licence recorded.
+  - `node scripts/skills/vendor-skills.mjs` fetches docs only (`.md`/`.txt`; no scripts, IaC, hooks or telemetry). It checks each file's git blob SHA against the pinned tree and writes `Java backend/src/main/resources/skills/` plus `manifest.json` with a sha256 per file.
+  - **Never hand-edit or reformat that directory.** `.prettierignore` and `.gitattributes -text` protect it.
+  - Bumping a commit means reviewing the upstream diff, then re-running the script.
+  - A pack whose licence forbids redistribution is `distribution: "fetch"`: it's checksummed in the manifest but not committed, and installed with `vendor-skills.mjs install <ananke.skills.fetch-dir>`.
+- **`SkillRegistry` fails startup.** Any bad frontmatter, checksum mismatch, unpinned commit, duplicate name, unsafe path or missing file throws `SkillBundleException`, and the backend doesn't boot (every problem is listed). `ananke.skills.bundle-dir` swaps in a whole bundle from disk under the same rules.
+- **Discovery and loading.**
+  - `AgentCapabilities.systemPrompt(base, profile)` appends a one-line-per-skill index, filtered by the `AgentProfile` topics. `COPILOT` sees all enabled skills; `PACK_OPS` sees compute/gpu/cost/identity/cli.
+  - `load_skill(name, file?)` returns the SKILL.md body without its frontmatter, or a manifest-listed file. Anything else is refused, including `..`, absolute paths, `%`, backslashes and empty segments.
+  - Output is wrapped with a notice that it is untrusted reference text.
+- **Skill text can't add tools.** An `AgentToolbox` is built in code per turn and is immutable. Frontmatter like `allowed-tools` is ignored, and an unknown tool name is just an error result.
+- **Cloud action tools** come only from `CloudActionToolSource` beans whose cloud is linked (`CloudToolGate`). None exist until §7, so today no agent is offered any. **Billable** tools never run in the loop: `ActionConfirmationService` parks the call with its cost estimate, a person confirms via `POST /api/agent/actions/{id}/confirm`, and every step is written to `agent_audit_log` (V8) against the Pack. Pending actions are in-memory with a 15-minute TTL; a restart drops them, which fails safe.
+- **AWS action side (#7):**
+  - `AwsActionToolSource` is the first real `CloudActionToolSource`. It's offered only while an AWS account is linked.
+  - Read-only tools: `aws_list_gpu_types`, `aws_estimate_gpu_vm`, `aws_list_machines`.
+  - **Billable** tools: `aws_provision_gpu_vm` (the person confirms the exact estimate, and the VM is created from that estimate id) and `aws_start_vm`.
+  - There are no stop/terminate tools for agents.
+  - `AwsMcpKnowledge` is a SigV4 (`aws-mcp`) streamable-HTTP MCP client for the official AWS MCP Server. It's allowlisted to the 5 read-only knowledge tools, so `aws___run_script` and pre-signed URLs are never exposed; the linked role also denies everything `aws:ViaAWSMCPService`.
+  - `AwsMcpLiveCheck` is an opt-in (`AWS_MCP_LIVE=1`) unsigned check against the real server.
+  - UI: `PendingActions` (Confirm/Reject, polls), `PackAgentDialog` ("Ask agent" on `/packs`) and `PackAudit` (per-Pack trail).
+  - `load_skill` accepts `offset` / returns `nextOffset` for files over 60k characters.
+- **Who composes it:**
+  - `CopilotService` **chat** mode composes the kit.
+  - **Research** mode keeps exactly its four data tools and prompt, so the Phase-0 baseline is unchanged; `CopilotResearchFixtureTest` still uses the 7-arg constructor.
+  - The read-only Pack agent is `packs/agent/PackOpsAgent` (`POST /api/packs/agent/chat`).
+  - A new agent should be `agents.toolbox(profile, packId, ownTools)` + `AgentToolLoop.run(...)`, not a new loop.
+- **API and UI:** `GET /api/skills/packs`, `PUT /api/skills/packs/{id} {enabled}` (persisted to `ananke.skills.settings-file`), and `GET /api/skills/agents`. The UI lives in Settings → Agent skills (`?section=skills`).
+- **Tests (offline):** `SkillRegistryTest`, `SkillToolsetTest`, `CloudActionGatingTest`, and `AgentSkillsOfflineTest`, where a scripted `LLMClient` calls `load_skill` on the real bundle and answers from it, through both agents.
+
+### Copilot V1 regression baseline (Phase 0)
+
+These contracts are **frozen by tests** as the regression baseline for Phase 1. A Phase 1 change
+that alters any of them must update the named test deliberately, in the same commit, and say why.
+Everything runs offline (`npm run test:backend`, `npm run test:executor`).
+
+| Test | Freezes |
+|---|---|
+| `service/CopilotResearchFixtureTest` | `runResearch` end to end: SSE event order, persisted rows, fallback, error paths |
+| `controller/CopilotControllerTest` | 503 JSON (`{message, status:503}`) before any stream opens when no provider is configured |
+| `service/AnthropicClientTest` | OpenAI ⇄ Anthropic translation (fake Messages API on a JDK `HttpServer`) |
+| `service/KimiClientTest` | `llm.*` over `kimi.*` precedence, keyless localhost, verbatim pass-through |
+| `service/ResolvingLLMClientTest`, `LlmProviderConfigTest` | preferred → fallback → none; `llm.provider` aliases; unknown provider throws |
+| `executor/test_executor.py` | `/execute` HTTP contract, timeout, chunked bodies |
+
+**SSE frames** (`CopilotDto.ResearchEvent`, one JSON object per `data:` frame,
+`{type, message, payload}`):
+
+| `type` | `message` | `payload` |
+|---|---|---|
+| `status` | progress text (`Analysing request…`, `Fetching <symbol as typed> price data…`, `Executing strategy in Jupyter…`, `Running backtest…`, `Analysing results…`) | `null` |
+| `code` | `Generated strategy` | the first fenced block's code, trimmed |
+| `backtest` | `Backtest complete` | `ApiDto.BacktestResultResponse` (camelCase, ISO-8601 `Instant`s; `id` = persisted row) |
+| `explanation` | `Analysis complete` | markdown string (omitted when the explanation call fails/blank) |
+| `done` | `Done` | `ResearchSummary {strategyName, symbol, backtestResultId, usedExportedResult}` (research) / `null` (chat) |
+| `error` | human-readable reason | `null` |
+| `token` | `null` | full chat answer (chat mode only — one frame, not streamed tokens) |
+
+Happy path order: `status, [status per tool call…], code, status, status, backtest, status,
+explanation, done`. Every failure ends the stream after a single `error` (no `done`):
+no code fence → `The model did not return a Python code block. Try rephrasing the request.`;
+executor failure → `Strategy code failed:\n` + stderr tail (1500 chars) or the executor's `error`
+when stderr is blank; nothing exported → `The script ran but no strategy was exported. …Output:\n`
++ stdout tail; LLM unavailable mid-run → the exception's root message. The emitter is always
+completed.
+
+**Persistence.** `k.export()` (via `POST /api/strategies` → `StrategyService.saveStrategy`) writes
+the strategy + an exported `backtest_results` row. For `rsi_crossover`/`ema_crossover`,
+`CopilotService` re-runs through the engine over the exported row's symbol/range and persists a
+**second** row (`interval='1Min'`) which carries `copilot_explanation` and whose id is in `done`.
+Any other type → `UnsupportedOperationException` → the exported row is used and annotated
+(`usedExportedResult: true`, one row).
+
+**Executor** (`executor/executor.py`): `POST /execute {code, timeout?}` →
+`200 {stdout, stderr, returncode}` for any completed run (non-zero exit is still 200);
+`400 {error}` for malformed JSON / missing `code`; `504 {"error":"Execution timed out after Ns"}`;
+`404 {"error":"Not found"}`; `GET /health` → `{status:"ok", port}`. Accepts chunked bodies.
+`JupyterExecutionService` maps non-2xx → `ExecutionResult.error("Executor returned HTTP <n>: <error>")`
+and `returncode != 0` → `success=false, error="Python exited with code <n>"` with stdout/stderr kept.
+
+**`LLMClient` contract.** `chat(messages, tools, maxTokens)` returns OpenAI shape regardless of
+provider: `choices[0].message.{role, content, tool_calls[{id, type:"function", function:{name,
+arguments: <JSON string>}}]}` and `choices[0].finish_reason` — the loop only branches on
+`"tool_calls"` vs anything else. `complete()` = system + user, no tools, returns content text.
+Empty `tools` are omitted from the request. Unusable provider → `LLMUnavailableException` (503 at
+the controller, `error` frame mid-stream). Anthropic: system turns joined with `\n\n` into
+top-level `system`; `stop_reason:"tool_use"` (or any `tool_use` block) → `tool_calls`, **every
+other stop reason → `"stop"`**; unparseable tool arguments → `{}` input.
+
+**Known V1 limitations (frozen, not endorsed):**
+- **Strategy name is scraped from stdout** (`Kairos '<name>' exported successfully`), falling back
+  to the first `name='…'` literal in the code — any `name=` (e.g. a column rename) can win.
+- **`usedExportedResult` fallback is silent-ish**: any engine exception (not only unsupported
+  types) falls back to the SDK's row; when the exported row lacks symbol/range the re-run is skipped.
+- The engine re-run window is the exported row's `[fromTs, toTs]`, not the user's request.
+- Anthropic `max_tokens` truncation is reported as `finish_reason:"stop"`, not `"length"`.
+- `KimiClient` does not treat `http://[::1]` as local (`URI.getHost()` keeps the brackets), so IPv6
+  loopback still needs a key.
+- A provider **401** escapes as `RestClientException` (JDK `HttpURLConnection` streaming-mode
+  `HttpRetryException`), not `LLMUnavailableException` — it surfaces as an `error` frame, never 503.
+- Chat mode emits the whole answer as one `token` frame; there is no token streaming.
+
 ### Chart architecture
 
 `PriceChart` manages ONE `lightweight-charts` v5 instance via `useChartBase` with **native panes** (build doc §10):
@@ -183,6 +407,8 @@ Backend endpoints currently implemented:
 - `DELETE /api/symbols/{symbol}`
 - `GET /api/prices/{symbol}/range?from=&to=`
 - `GET /api/strategies`, `GET /api/strategies/{name}`, `POST /api/strategies/{name}/run`
+- `GET /api/strategies/{name}/results` (every persisted run — what the Results tab hydrates from)
+- `POST /api/copilot/research`, `POST /api/copilot/chat` (SSE; 503 when no LLM provider is configured — see `LLM_PROVIDER` below)
 - `GET /api/strategies/active`, `GET /api/account`, `GET /api/positions`, `GET /api/models`
 
 Waiting on the backend (each renders a §6 `PanelState kind="pending"` naming the exact endpoint, never a blank panel — decision D5):
@@ -203,6 +429,32 @@ Two of these (`/api/trades/range`, `/api/metrics/engine`) are stubbed as deliber
 | `VITE_WS_URL` | derived from base URL | Realtime price socket (§14; only dialled when the flag below is on) |
 | `VITE_WS_ENABLED` | unset (off) | `1` turns on the §14 hot path. Off = polling exactly as before; the socket is an addition, never a replacement |
 | `VITE_JUPYTER_URL` | `http://localhost:8890` | JupyterLab URL for "Open in JupyterLab" (see below) |
+
+Backend-side (`.env`, passed to `stock-tracker` by compose):
+
+| Var | Default | Purpose |
+|---|---|---|
+| `LLM_PROVIDER` | `openai_compatible` | `openai_compatible` or `anthropic` — see the BYOK bullet above |
+| `LLM_API_KEY` | unset | openai_compatible key. Blank is valid for a local server (Ollama, LM Studio, …) that doesn't check it |
+| `LLM_BASE_URL` | `https://api.moonshot.ai/v1` | Any OpenAI-compatible base URL — OpenAI, Kimi, Groq, Together, DeepSeek, OpenRouter, or `http://localhost:11434/v1` etc. for a local model |
+| `LLM_MODEL` | `kimi-k2-0905-preview` | Model id for the openai_compatible provider |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset / `https://api.anthropic.com` / `claude-sonnet-4-5` | Used only when `LLM_PROVIDER=anthropic` |
+| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | Legacy names — still read as fallbacks when the `LLM_*` vars above are unset |
+| `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where the Java container reaches `executor.py` |
+| `ANANKE_AWS_ENDPOINT` / `ANANKE_AWS_PRICING_ENDPOINT` | unset (real AWS) | Cloud §7: emulator overrides (moto / a fake price server) — tests only |
+| `ANANKE_AWS_DLAMI_PARAMETER` | the public DLAMI Ubuntu 22.04 SSM path | Cloud §7: emulators can't hold names under `/aws/` |
+| `ANANKE_AWS_BOOT_TIMEOUT_MINUTES` / `ANANKE_AWS_HOST_KEY_TIMEOUT_MINUTES` | 10 / 10 | Cloud §7: provisioning waits |
+| `ANANKE_AWS_MCP_ENABLED` / `ANANKE_AWS_MCP_ENDPOINT` | `true` / `https://aws-mcp.us-east-1.api.aws/mcp` | #7: AWS MCP knowledge tools for agents (only while AWS is linked) |
+| `ANANKE_EGRESS_IP_URL` | `https://checkip.amazonaws.com` | Cloud §7: the backend's public IP for the VM's SSH rule |
+| `ANANKE_SKILLS_FETCH_DIR` | `./data/skills` | Agent skills: install dir for `distribution: "fetch"` packs (none today) |
+| `ANANKE_SKILLS_SETTINGS_FILE` | `./data/skills-settings.json` | Agent skills: packs switched off in Settings |
+| `ANANKE_SKILLS_BUNDLE_DIR` | unset | Agent skills: load a whole bundle from disk instead of the jar (same checksum rules) |
+| `ANANKE_SECRET_KEY` | unset | Packs: base64 32-byte master key for encrypted credentials. Unset = generated key file on the data volume |
+| `ANANKE_VLLM_VERSION` | `0.11.0` | Packs: vLLM version installed on machines (pinned) |
+| `ANANKE_PACKS_HEALTH_TIMEOUT_MINUTES` / `ANANKE_PACKS_DEPLOY_TIMEOUT_MINUTES` | `30` / `90` | Packs: model-load and install/download limits |
+
+No provider configured (missing key for the selected `LLM_PROVIDER`) = `/api/copilot/*` answers 503
+and the tab shows a config notice.
 
 ### Open in JupyterLab
 

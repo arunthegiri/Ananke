@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>anankε — AI-native financial research</title>
+    <meta
+      name="description"
+      content="Ananke turns market questions into reproducible evidence. An AI research copilot, backtesting and a desktop research terminal — bring your own model."
+    />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #07090c;
+        --surface: #0e1218;
+        --surface-2: #151a22;
+        --border: #222a35;
+        --text: #e6e9ee;
+        --muted: #8b95a5;
+        --accent: #5b9cff;
+        --accent-2: #93c5fd;
+        --radius: 14px;
+        --max: 1120px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .wrap {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      .mono {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+      }
+
+      /* Nav */
+      nav {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(12px);
+        background: color-mix(in srgb, var(--bg) 80%, transparent);
+        border-bottom: 1px solid var(--border);
+      }
+      nav .wrap {
+        display: flex;
+        align-items: center;
+        height: 60px;
+        gap: 32px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      .word .eps {
+        font-family: "Times New Roman", Georgia, serif;
+        font-style: italic;
+        font-weight: 400;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        padding-right: 0.06em;
+      }
+      .brand .word {
+        font-size: 18px;
+      }
+      .brand img {
+        width: 28px;
+        height: 28px;
+      }
+      nav .links {
+        display: flex;
+        gap: 24px;
+        font-size: 14px;
+        color: var(--muted);
+        flex: 1;
+      }
+      nav .links a:hover {
+        color: var(--text);
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 44px;
+        padding: 0 20px;
+        border-radius: 10px;
+        font-weight: 500;
+        font-size: 15px;
+        border: 1px solid var(--border);
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          transform 0.15s;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #04101f;
+      }
+      .btn-primary:hover {
+        background: var(--accent-2);
+        border-color: var(--accent-2);
+      }
+      .btn-ghost:hover {
+        background: var(--surface-2);
+      }
+      .btn-sm {
+        height: 36px;
+        padding: 0 14px;
+        font-size: 14px;
+      }
+
+      /* Hero */
+      .hero {
+        position: relative;
+        padding: 96px 0 56px;
+        text-align: center;
+        overflow: hidden;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        inset: -40% -20% auto;
+        height: 700px;
+        background: radial-gradient(
+          ellipse at center,
+          color-mix(in srgb, var(--accent) 22%, transparent),
+          transparent 60%
+        );
+        pointer-events: none;
+      }
+      .eyebrow {
+        display: inline-block;
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent-2);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        padding: 6px 12px;
+        border-radius: 999px;
+      }
+      h1 {
+        position: relative;
+        font-size: clamp(40px, 6vw, 68px);
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        margin: 24px auto 20px;
+        max-width: 880px;
+        font-weight: 700;
+      }
+      h1 span {
+        background: linear-gradient(90deg, var(--accent), var(--accent-2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .lede {
+        position: relative;
+        max-width: 640px;
+        margin: 0 auto 32px;
+        color: var(--muted);
+        font-size: 18px;
+      }
+      .cta {
+        position: relative;
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .fine {
+        position: relative;
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* Screenshot */
+      .shot {
+        position: relative;
+        margin: 56px auto 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        background: var(--surface);
+        box-shadow:
+          0 40px 120px -40px color-mix(in srgb, var(--accent) 35%, transparent),
+          0 0 0 1px rgba(255, 255, 255, 0.02);
+      }
+      .shot .bar {
+        display: flex;
+        gap: 7px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-2);
+      }
+      .shot .bar i {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background: #3a4250;
+      }
+      .shot img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      /* Sections */
+      section {
+        padding: 96px 0;
+      }
+      .kicker {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent-2);
+        margin-bottom: 12px;
+      }
+      h2 {
+        font-size: clamp(28px, 3.6vw, 40px);
+        letter-spacing: -0.02em;
+        line-height: 1.15;
+        margin: 0 0 16px;
+        max-width: 720px;
+      }
+      .sub {
+        color: var(--muted);
+        max-width: 640px;
+        margin: 0 0 48px;
+        font-size: 17px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px;
+      }
+      .card h3 {
+        margin: 14px 0 8px;
+        font-size: 17px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        color: var(--accent-2);
+      }
+      .icon svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      /* Pipeline */
+      .pipeline {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        counter-reset: step;
+      }
+      .step {
+        position: relative;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+      }
+      .step::before {
+        counter-increment: step;
+        content: "0" counter(step);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--accent-2);
+      }
+      .step h4 {
+        margin: 8px 0 6px;
+        font-size: 15px;
+      }
+      .step p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* Evidence sample */
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        align-items: center;
+      }
+      .report {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+        font-size: 13px;
+        line-height: 1.7;
+        overflow-x: auto;
+      }
+      .report > div {
+        white-space: pre;
+      }
+      .report .h {
+        color: var(--muted);
+      }
+      .report .g {
+        color: #4ade80;
+      }
+      .report .r {
+        color: #f87171;
+      }
+      .report .y {
+        color: #fbbf24;
+      }
+      .grade {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: color-mix(in srgb, #fbbf24 16%, transparent);
+        color: #fbbf24;
+        font-weight: 500;
+      }
+      ul.checks {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: 14px;
+      }
+      ul.checks li {
+        display: flex;
+        gap: 12px;
+        color: var(--muted);
+      }
+      ul.checks li b {
+        color: var(--text);
+        font-weight: 600;
+      }
+      ul.checks svg {
+        flex: none;
+        width: 18px;
+        height: 18px;
+        margin-top: 3px;
+        color: var(--accent);
+      }
+
+      /* Providers */
+      .providers {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .chip {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      /* Download */
+      .download {
+        text-align: center;
+        background: linear-gradient(180deg, var(--surface), var(--bg));
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 64px 24px;
+      }
+      .download img {
+        width: 88px;
+        height: 88px;
+      }
+      .download h2 {
+        margin: 16px auto 12px;
+      }
+      .download .sub {
+        margin: 0 auto 28px;
+      }
+      .reqs {
+        margin-top: 20px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 32px 0 48px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      footer .wrap {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        justify-content: space-between;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .pipeline {
+          grid-template-columns: 1fr 1fr;
+        }
+        .split {
+          grid-template-columns: 1fr;
+        }
+        nav .links {
+          display: none;
+        }
+        nav .wrap {
+          justify-content: space-between;
+        }
+      }
+      @media (max-width: 600px) {
+        .grid,
+        .pipeline {
+          grid-template-columns: 1fr;
+        }
+        .hero {
+          padding-top: 64px;
+        }
+        section {
+          padding: 64px 0;
+        }
+        .wrap {
+          padding: 0 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <div class="wrap">
+        <a href="#" class="brand" aria-label="Ananke"><img src="icon.svg" alt="" /><span class="word">anank<span class="eps">ε</span></span></a>
+        <div class="links">
+          <a href="#how">How it works</a>
+          <a href="#evidence">Evidence</a>
+          <a href="#models">Your models</a>
+        </div>
+        <a href="#download" class="btn btn-primary btn-sm">Download for Mac</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="wrap">
+        <span class="eyebrow">AI-native financial research</span>
+        <h1>Turn market questions into <span>evidence you can trust</span>.</h1>
+        <p class="lede">
+          Describe a strategy in plain English. Ananke writes the code, runs it on real market
+          data, tests it on data it never saw, and tells you what worked, what didn't, and why.
+        </p>
+        <div class="cta">
+          <a href="#download" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.9 5c.7-.9 1.2-2 1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3.1-1.5z"
+              />
+            </svg>
+            Download for macOS
+          </a>
+          <a href="#how" class="btn btn-ghost">See how it works</a>
+        </div>
+        <p class="fine">Free · Apple Silicon &amp; Intel · Bring your own AI model</p>
+
+        <div class="shot">
+          <div class="bar"><i></i><i></i><i></i></div>
+          <img
+            src="screenshot-copilot.png"
+            width="1600"
+            height="972"
+            alt="The Ananke Copilot inside the macOS research terminal"
+          />
+        </div>
+      </div>
+    </header>
+
+    <section id="how">
+      <div class="wrap">
+        <div class="kicker">How it works</div>
+        <h2>One prompt. A complete, traceable research run.</h2>
+        <p class="sub">
+          The copilot orchestrates real tools: your market data, a Python research SDK, and a
+          backtesting engine. It doesn't make up numbers. Every result links back to the code and
+          data that produced it.
+        </p>
+        <div class="pipeline">
+          <div class="step">
+            <h4>Specify</h4>
+            <p>Your idea becomes a structured, validated research spec.</p>
+          </div>
+          <div class="step">
+            <h4>Audit data</h4>
+            <p>Coverage and gaps are checked before any code runs.</p>
+          </div>
+          <div class="step">
+            <h4>Build</h4>
+            <p>Strategy code is generated and run in a Python environment.</p>
+          </div>
+          <div class="step">
+            <h4>Test</h4>
+            <p>Backtests on a development window and an untouched holdout.</p>
+          </div>
+          <div class="step">
+            <h4>Explain</h4>
+            <p>Findings are computed by code; the AI only explains them.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="evidence">
+      <div class="wrap split">
+        <div>
+          <div class="kicker">Research truth first</div>
+          <h2>An honest "no" beats an impressive backtest.</h2>
+          <p class="sub" style="margin-bottom: 32px">
+            Most strategy tools show you a rising equity curve. Ananke shows you whether the
+            edge survives data it was never tuned on.
+          </p>
+          <ul class="checks">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+              <span><b>Untouched holdout.</b> Performance is checked on a later period the strategy never saw.</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+              <span><b>Deterministic findings.</b> Low sample size, concentrated profits and cost sensitivity are flagged by code, not opinion.</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+              <span><b>Evidence grades.</b> Insufficient, Broken, Fragile, Mixed or Promising. Promising means "worth more research", never "safe to trade".</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M5 12l5 5L20 7" />
+              </svg>
+              <span><b>Nothing trades by itself.</b> Research never touches a brokerage account.</span>
+            </li>
+          </ul>
+        </div>
+        <div class="report mono" aria-label="Example research report">
+          <div class="h">strategy  nvda_rsi_meanrev_14_30_70</div>
+          <div class="h">data      41,822 bars · 99.4% session coverage</div>
+          <br />
+          <div>development  <span class="g">+4.8%</span>  sharpe 1.11  pf 1.28  94 trades</div>
+          <div>holdout      <span class="r">−0.7%</span>  sharpe −0.22 pf 0.91  21 trades</div>
+          <br />
+          <div>grade  <span class="grade">FRAGILE</span></div>
+          <br />
+          <div class="g">✓ working</div>
+          <div>  drawdown stayed under the 5% limit</div>
+          <div class="r">✗ not working</div>
+          <div>  edge did not survive the holdout</div>
+          <div>  returns concentrated in first two months</div>
+          <div class="y">? inconclusive</div>
+          <div>  21 holdout trades is too few to say</div>
+          <br />
+          <div class="h">next  test an ATR volatility filter</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="models">
+      <div class="wrap">
+        <div class="kicker">Bring your own AI</div>
+        <h2>Your model. Your keys. Your machine.</h2>
+        <p class="sub">
+          Pick a provider in Settings, paste an API key, and choose a model. Switch any time from
+          the Copilot. Run a local model if you'd rather nothing leaves your Mac.
+        </p>
+        <div class="providers">
+          <span class="chip">Anthropic Claude</span>
+          <span class="chip">OpenAI</span>
+          <span class="chip">OpenRouter</span>
+          <span class="chip">Groq</span>
+          <span class="chip">Together</span>
+          <span class="chip">DeepSeek</span>
+          <span class="chip">Moonshot Kimi</span>
+          <span class="chip">Ollama (local)</span>
+          <span class="chip">LM Studio (local)</span>
+          <span class="chip">Any OpenAI-compatible endpoint</span>
+        </div>
+
+        <div class="grid" style="margin-top: 56px">
+          <div class="card">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 3v18h18" /><path d="M7 15l4-4 3 3 5-6" />
+              </svg>
+            </div>
+            <h3>Research terminal</h3>
+            <p>Multi-pane charts with indicators, session bands and trade replay, built for long research sessions.</p>
+          </div>
+          <div class="card">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
+              </svg>
+            </div>
+            <h3>Market data you own</h3>
+            <p>Minute bars stored in your own time-series database, with coverage checks and gap backfill.</p>
+          </div>
+          <div class="card">
+            <div class="icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 6l-6 6 6 6" /><path d="M16 6l6 6-6 6" />
+              </svg>
+            </div>
+            <h3>Code you can open</h3>
+            <p>Every strategy is plain Python on the Ananke SDK. Open it in JupyterLab and keep going by hand.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="wrap">
+        <div class="download">
+          <img src="icon.svg" alt="Ananke app icon" />
+          <h2><span class="word">anank<span class="eps">ε</span></span> for macOS</h2>
+          <p class="sub">One universal app for Apple Silicon and Intel Macs.</p>
+          <div class="cta">
+            <a class="btn btn-primary" href="downloads/Ananke-0.1.0-universal.dmg" download>
+              Download .dmg
+            </a>
+            <a class="btn btn-ghost" href="downloads/Ananke-0.1.0-universal-mac.zip" download>
+              Download .zip
+            </a>
+          </div>
+          <p class="reqs mono">v0.1.0 · macOS 11 Big Sur or later · Early preview</p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div class="wrap">
+        <span>© 2026 <span class="word">anank<span class="eps">ε</span></span></span>
+        <span>Research software. Not investment advice. Past performance does not predict future results.</span>
+      </div>
+    </footer>
+  </body>
+</html>

@@ -5,3 +5,8 @@ dist
 pnpm-lock.yaml
 package-lock.json
 routeTree.gen.ts
+dist-electron
+desktop/web
+desktop/release
+# Vendored agent skills are sha256-pinned (Packs build doc §9) — never reformat
+Java backend/src/main/resources/skills

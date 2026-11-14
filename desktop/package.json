@@ -1,0 +1,47 @@
+{
+  "name": "ananke-desktop",
+  "productName": "Ananke",
+  "version": "0.1.0",
+  "description": "Ananke research terminal for macOS",
+  "private": true,
+  "main": "main.cjs",
+  "author": "Arun Thegiri",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac --universal",
+    "dist:dir": "electron-builder --mac --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "ai.ananke.terminal",
+    "productName": "Ananke",
+    "files": [
+      "main.cjs",
+      "splash.html",
+      "web/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "minimumSystemVersion": "11.0",
+      "icon": "build/icon.png",
+      "hardenedRuntime": true,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Ananke"
+    },
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    }
+  }
+}

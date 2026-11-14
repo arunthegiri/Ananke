@@ -6,4 +6,13 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
-export default defineConfig();
+// ANANKE_TARGET=electron builds a plain Node server bundle (dist-electron/) that the
+// desktop app runs in-process, instead of the Cloudflare Worker bundle (dist/).
+const electron = process.env.ANANKE_TARGET === "electron";
+
+export default electron
+  ? defineConfig({
+      cloudflare: false,
+      vite: { build: { outDir: "dist-electron" }, ssr: { noExternal: true } },
+    })
+  : defineConfig();

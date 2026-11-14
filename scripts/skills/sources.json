@@ -1,0 +1,91 @@
+{
+  "_comment": "Agent skill packs (Ananke Packs build doc §9.1). Official repos only. Every bump of a commit is a re-review: read the diff of each skill below before running vendor-skills.mjs. Topics drive per-agent filtering (SkillToolset / AgentSkillProfile).",
+  "packs": [
+    {
+      "id": "aws-agent-toolkit",
+      "cloud": "aws",
+      "label": "Agent Toolkit for AWS",
+      "repo": "aws/agent-toolkit-for-aws",
+      "commit": "19b89b263b725b04082a55b4fc4d24d22f065999",
+      "license": "Apache-2.0",
+      "licenseFiles": ["LICENSE", "NOTICE"],
+      "distribution": "vendored",
+      "skills": [
+        { "path": "plugins/aws-core/skills/aws-compute", "topics": ["compute", "gpu"] },
+        { "path": "plugins/aws-core/skills/aws-iam", "topics": ["identity"] },
+        { "path": "plugins/aws-core/skills/aws-billing-and-cost-management", "topics": ["cost"] },
+        {
+          "path": "plugins/aws-core/skills/aws-cloudformation",
+          "topics": ["deployment", "identity"]
+        }
+      ]
+    },
+    {
+      "id": "aws-serverless",
+      "cloud": "aws",
+      "label": "Agent Plugin for AWS Serverless",
+      "repo": "awslabs/agent-plugins",
+      "commit": "6947600b07a9b527bb1048b6938eee046c9d36f1",
+      "license": "Apache-2.0",
+      "licenseFiles": ["LICENSE", "NOTICE"],
+      "distribution": "vendored",
+      "skills": [
+        { "path": "plugins/aws-serverless/skills/aws-lambda", "topics": ["serverless"] },
+        {
+          "path": "plugins/aws-serverless/skills/aws-serverless-deployment",
+          "topics": ["serverless", "deployment"]
+        }
+      ]
+    },
+    {
+      "id": "google-cloud-skills",
+      "cloud": "gcp",
+      "label": "Google Agent Skills (Cloud)",
+      "repo": "google/skills",
+      "commit": "67c4dbc8ff6313ef117d938e53bb21315fc281ae",
+      "license": "Apache-2.0",
+      "licenseFiles": ["LICENSE"],
+      "distribution": "vendored",
+      "skills": [
+        { "path": "skills/cloud/compute-vm-creation", "topics": ["compute", "gpu"] },
+        {
+          "path": "skills/cloud/compute-spot-capacity-advice",
+          "topics": ["compute", "gpu", "cost"]
+        },
+        { "path": "skills/cloud/google-cloud-recipe-auth", "topics": ["identity"] },
+        { "path": "skills/cloud/iam-helper-for-troubleshooting", "topics": ["identity"] },
+        { "path": "skills/cloud/gcloud", "topics": ["cli"] },
+        { "path": "skills/cloud/google-cloud-waf-cost-optimization", "topics": ["cost"] }
+      ]
+    },
+    {
+      "id": "azure-skills",
+      "cloud": "azure",
+      "label": "Azure Skills (Microsoft)",
+      "repo": "microsoft/azure-skills",
+      "commit": "968f7bfaa01672e782dae2c6bab4fb9505ae047a",
+      "license": "MIT",
+      "licenseFiles": ["LICENSE"],
+      "distribution": "vendored",
+      "skills": [
+        { "path": "skills/azure-compute", "topics": ["compute", "gpu", "cost"] },
+        { "path": "skills/azure-quotas", "topics": ["compute", "gpu"] },
+        { "path": "skills/entra-app-registration", "topics": ["identity"] }
+      ]
+    },
+    {
+      "id": "microsoft-learn-skills",
+      "cloud": "azure",
+      "label": "Microsoft Learn Agent Skills",
+      "repo": "MicrosoftDocs/Agent-Skills",
+      "commit": "9b16b5c7c7716949c83fc4bbdc448e0ada7f93a3",
+      "license": "CC-BY-4.0 (docs) / MIT (code)",
+      "licenseFiles": ["LICENSE", "LICENSE-CODE", "ThirdPartyNotices.md"],
+      "distribution": "vendored",
+      "skills": [
+        { "path": "skills/azure-virtual-machines", "topics": ["compute", "gpu"] },
+        { "path": "skills/azure-cost-management", "topics": ["cost"] }
+      ]
+    }
+  ]
+}

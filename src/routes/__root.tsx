@@ -1,4 +1,10 @@
-import { Outlet, createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
+import {
+  Outlet,
+  createRootRouteWithContext,
+  HeadContent,
+  Scripts,
+  useRouter,
+} from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect } from "react";
@@ -125,6 +131,17 @@ function RootComponent() {
   // Dev-only jank instrumentation (?perf=1) — the ruler for the build doc's
   // perf budgets; no-ops in production and unsupported browsers.
   useEffect(() => startLoafInstrumentation(), []);
+
+  // macOS app menu (desktop/main.cjs, e.g. Settings… ⌘,) asks for in-app navigation.
+  const router = useRouter();
+  useEffect(() => {
+    const onNav = (e: Event) => {
+      const href = (e as CustomEvent<string>).detail;
+      if (typeof href === "string" && href.startsWith("/")) void router.navigate({ href });
+    };
+    window.addEventListener("ananke:navigate", onNav);
+    return () => window.removeEventListener("ananke:navigate", onNav);
+  }, [router]);
 
   // §14 M5 realtime transport. A no-op unless VITE_WS_ENABLED=1 (or the
   // dev-only ?wsMock=1 generator), so with the flag off the app keeps its

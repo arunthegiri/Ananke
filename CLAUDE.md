@@ -19,9 +19,25 @@ npm run format       # Prettier (write)
 npm run test:visual        # Playwright suite (visual baselines + behavioural contracts)
 npm run test:visual:update # re-record baselines — review every diff
 npm run test:unit          # plain-node unit tests (chart theme, calendar, correlation, distributions)
+npm run test:backend       # Java backend tests in Docker (Maven + Testcontainers; needs Docker running)
+npm run test:executor      # stdlib unittest for executor/executor.py (no SDK, no DB)
 ```
 
 To run against the Spring Boot backend: `VITE_API_BASE_URL=http://localhost:8080 npm run dev`.
+
+`test:backend` + `test:executor` are the **Phase 0 Copilot/LLM regression baseline** — offline
+(fake HTTP servers, scripted `LLMClient`, executor double) and they freeze current V1 behaviour,
+quirks included. The frozen contracts are listed in AGENTS.md ("Copilot V1 regression baseline").
+
+**Building the Java backend:** there is no local Maven — it builds in Docker. There are also *two*
+`docker-compose.yml` files (repo root and `Java backend/`), so always be explicit or a bare
+`docker compose` from the wrong cwd silently builds a different project's image and your fix
+appears to do nothing:
+
+```bash
+docker compose -f ./docker-compose.yml --project-directory . build stock-tracker
+docker compose -f ./docker-compose.yml --project-directory . up -d stock-tracker
+```
 
 ## Architecture
 
@@ -54,9 +70,12 @@ src/
   lib/realtime/     ← §14 WebSocket hot path: socket / per-symbol stores / rAF coalescer
   lib/chart-theme.ts, chart-primitives/ ← canvas-facing token resolution + v5 pane/series primitives
   lib/event-calendar.ts, correlation.ts, pnl-distribution.ts ← pure feeds behind the §15 panels
+  lib/api/copilot.ts, lib/api/sse.ts ← copilot SSE client + reusable frame parser
   components/terminal/ ← the design system: TerminalPanel, tabs, PanelState, controls/, table/
+  components/copilot/  ← copilot surfaces: CodeBlock, BacktestCard, CopilotMarkdown
   components/metrics/  ← §15 analysis panels (strategy table, universe ranking, correlation, …)
-  routes/           ← /, /data, /backtesting, /live, /metrics, /models (+ dev/controls, DEV-only)
+  routes/           ← /, /data, /backtesting, /live, /metrics, /models, /copilot, /packs, /settings (+ dev/controls, DEV-only)
+executor/           ← stdlib Python code executor mounted into the Jupyter container (copilot M0)
   routeTree.gen.ts  ← AUTO-GENERATED — never edit
 ```
 
@@ -92,6 +111,57 @@ custom pane/series primitives. See AGENTS.md for the v5.2.0 gotchas (pane 0's st
 Client-side interval aggregation (`aggregatePriceBars`) buckets the API's raw 1-minute bars; the
 backend always returns 1-minute data.
 
+### Copilot
+
+`/copilot` turns one prompt into a saved, backtested strategy, streamed as SSE. It **orchestrates**
+Ananke rather than reimplementing it: generated Python executes in the **Jupyter** container (where
+the SDK lives) via `executor/executor.py`, `k.export()` saves through the normal strategy endpoint,
+the backtest runs through `BacktestEngineService`, and the AI analysis is stored on
+`backtest_results.copilot_explanation` so it survives a reload.
+
+Two constraints shape it, and both are load-bearing:
+- The engine only re-runs `rsi_crossover` / `ema_crossover`, so the system prompt requires
+  `params={'type': …}`. If the engine still refuses, the flow falls back to the run `k.export()`
+  already persisted instead of discarding work that succeeded.
+- The system prompt pins the real SDK contract — `get_data()` is positional (`from` is a Python
+  keyword) and `k.run()` must precede `k.export()`. A generic LLM gets both wrong.
+
+**LLM provider is bring-your-own-key.** `CopilotService`'s tool loop is written once against the
+OpenAI chat-completion wire shape (`choices[0].message` / `finish_reason` / `tool_calls[]`) and
+talks only to the `LLMClient` interface, never a concrete client. `KimiClient` (name is historical)
+implements it directly — it's already OpenAI-shaped, so it also serves OpenAI, Groq, Together,
+DeepSeek, OpenRouter, and any local model server with an OpenAI-compatible `/chat/completions`
+endpoint (Ollama, LM Studio, vLLM, llama.cpp server, …), selected purely via `LLM_BASE_URL`.
+`AnthropicClient` implements the same interface by translating both directions at its own boundary
+(system-role turns → top-level `system`; tool calls/results → `tool_use`/`tool_result` content
+blocks; response `content`/`stop_reason` → synthesized `choices[0].message`/`finish_reason`) so
+nothing above it changes. `LlmProviderConfig` picks the active one from `llm.provider` — single
+global config, chosen once at startup; Ananke has no user/tenant model yet, so there is no
+per-request resolution. If a per-user BYOK story is ever needed, that class is the one that
+changes.
+
+See AGENTS.md for the executor's chunked-body requirement, the Kimi `temperature` restriction, and
+the `ObjectMapper`/`SseEmitter` traps.
+
+### Packs
+
+`/packs` deploys a pinned Hugging Face model with vLLM on the user's own SSH-reachable GPU machine and
+registers it as copilot provider `pack:<id>`. Secrets are AES-GCM encrypted (`SecretVault`), the only
+remote code is `resources/packs/vllm-bootstrap.sh`. AWS GPU provisioning (Machines → Cloud) is built
+behind a cost estimate you must confirm and is verified only against emulators; GCP/Azure are not built. Contract and
+security rules: `Dev-notes/Ananke Packs Build Doc.md` and AGENTS.md.
+
+### Agent skills (Packs §9)
+
+Official AWS / Google Cloud / Azure `SKILL.md` packs, pinned to commits and sha256-checked at backend
+startup (a mismatch or bad frontmatter means the backend refuses to boot), reach every agent through
+`com.stocktracker.agent`. That is a skill index in the system prompt plus one `load_skill` tool, which
+works with any model. The bundle in `Java backend/src/main/resources/skills/` is generated by
+`scripts/skills/vendor-skills.mjs`; never edit or reformat it by hand. Skills are guidance only: no
+script from a skill ever runs, cloud action tools appear only for linked clouds (none yet), and
+billable actions need a person's confirmation plus an audit entry. New agents compose
+`AgentCapabilities`; they don't write their own tool loop. Details are in AGENTS.md.
+
 ### Timezones
 
 Eastern, everywhere, derived from `Intl` — never a hardcoded −4/−5. Session state, the economic
@@ -115,6 +185,21 @@ endpoint it is waiting on. Nothing blocks on backend work; nothing renders a bla
 | `VITE_WS_ENABLED` | unset (off) | `1` enables the hot path; off = polling, unchanged |
 | `VITE_JUPYTER_URL` | `http://localhost:8890` | JupyterLab URL for "Open in JupyterLab" |
 | `VITE_FRED_API_KEY` | unset | Optional: live FRED release dates supersede the maintained calendar |
+
+Backend-side (root `.env`, passed to `stock-tracker` by compose):
+
+| Var | Default | Purpose |
+|---|---|---|
+| `LLM_PROVIDER` | `openai_compatible` | `openai_compatible` or `anthropic` — picks the `LLMClient` bean |
+| `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL` | Moonshot defaults | openai_compatible provider — any OpenAI-shaped endpoint (OpenAI, Kimi, Groq, local Ollama/LM Studio/vLLM/…). Blank key is fine for a local server |
+| `ANTHROPIC_API_KEY` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` | unset | anthropic provider — used only when `LLM_PROVIDER=anthropic` |
+| `KIMI_API_KEY` / `KIMI_BASE_URL` / `KIMI_MODEL` | Moonshot defaults | legacy names, still read as fallbacks when the `LLM_*` vars are unset |
+| `JUPYTER_EXECUTOR_URL` | `http://jupyter:5000` | Where Java reaches the Python executor |
+| `ANANKE_SKILLS_FETCH_DIR` | `./data/skills` | Agent skills: where `distribution: "fetch"` packs are installed (none today) |
+| `ANANKE_SKILLS_SETTINGS_FILE` | `./data/skills-settings.json` | Agent skills: which packs are switched off in Settings |
+| `ANANKE_SECRET_KEY` | unset | Packs: base64 32-byte master key for encrypted credentials (unset = generated key file on the data volume) |
+
+Unset/misconfigured provider = `/api/copilot/*` returns 503 and the tab explains why.
 
 ### Adding a new route
 

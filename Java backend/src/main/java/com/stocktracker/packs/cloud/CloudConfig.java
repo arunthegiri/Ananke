@@ -1,0 +1,118 @@
+package com.stocktracker.packs.cloud;
+
+import com.stocktracker.agent.actions.AgentAuditRepository;
+import com.stocktracker.packs.ComputeTargetRepository;
+import com.stocktracker.packs.PackRepository;
+import com.stocktracker.packs.PackService;
+import com.stocktracker.packs.SecretVault;
+import com.stocktracker.packs.cloud.aws.AwsAccounts;
+import com.stocktracker.packs.cloud.aws.AwsGateway;
+import com.stocktracker.packs.cloud.aws.AwsMachines;
+import com.stocktracker.packs.cloud.aws.SdkAwsGateway;
+import com.stocktracker.packs.cloud.aws.SshKeygen;
+import com.stocktracker.packs.runtime.CommandRunner;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.Scheduled;
+
+import java.net.URI;
+import java.time.Clock;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/** Wires §7 cloud compute. {@code ananke.cloud.aws.endpoint} points every AWS call at an emulator (tests only). */
+@Slf4j
+@Configuration
+public class CloudConfig {
+
+    private static final AtomicInteger SEQ = new AtomicInteger();
+
+    @Bean
+    public AwsGateway awsGateway(@Value("${ananke.cloud.aws.endpoint:}") String endpoint,
+                                 @Value("${ananke.cloud.aws.pricing-endpoint:}") String pricingEndpoint) {
+        if (!endpoint.isBlank()) log.warn("AWS calls go to {} (emulator override), not AWS", endpoint);
+        if (!pricingEndpoint.isBlank()) log.warn("AWS price lookups go to {} (override), not AWS", pricingEndpoint);
+        URI main = endpoint.isBlank() ? null : URI.create(endpoint);
+        return new SdkAwsGateway(main, pricingEndpoint.isBlank() ? main : URI.create(pricingEndpoint));
+    }
+
+    @Bean
+    public AwsAccounts awsAccounts(CloudAccountRepository accounts, ComputeTargetRepository targets, SecretVault vault,
+                                   AwsGateway aws, @Value("${ananke.cloud.aws.dlami-parameter:}") String dlamiParameter) {
+        return new AwsAccounts(accounts, targets, vault, aws, Clock.systemUTC(), dlamiParameter);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public ExecutorService cloudExecutor() {
+        return Executors.newFixedThreadPool(2, r -> {
+            Thread t = new Thread(r, "cloud-" + SEQ.incrementAndGet());
+            t.setDaemon(true);
+            return t;
+        });
+    }
+
+    @Bean
+    public AwsMachines awsMachines(AwsAccounts accounts, AwsGateway aws, ComputeTargetRepository targets, PackRepository packs,
+                                   ObjectProvider<PackService> packService, SecretVault vault, CommandRunner runner,
+                                   @Value("${ananke.packs.ssh-keygen-binary:ssh-keygen}") String keygenBin,
+                                   AgentAuditRepository audit, ExecutorService cloudExecutor,
+                                   @Value("${ananke.cloud.aws.poll-seconds:10}") long pollSeconds,
+                                   @Value("${ananke.cloud.aws.boot-timeout-minutes:10}") long bootMinutes,
+                                   @Value("${ananke.cloud.aws.host-key-timeout-minutes:10}") long hostKeyMinutes) {
+        var timing = new AwsMachines.Timing(java.time.Duration.ofSeconds(pollSeconds), java.time.Duration.ofMinutes(bootMinutes),
+                java.time.Duration.ofMinutes(hostKeyMinutes), java.time.Duration.ofMinutes(10));
+        return new AwsMachines(accounts, aws, targets, packs, packService, vault, new SshKeygen(runner, keygenBin), audit,
+                cloudExecutor, d -> Thread.sleep(d.toMillis()), Clock.systemUTC(), timing);
+    }
+
+    @Bean
+    public EgressIp egressIp(@Value("${ananke.cloud.egress-ip-url:https://checkip.amazonaws.com}") String url) {
+        return new EgressIp(url);
+    }
+
+    /** The official AWS MCP Server, knowledge tools only (§9.3). Disabled = no MCP tools offered. */
+    @Bean
+    public com.stocktracker.packs.cloud.aws.AwsMcpKnowledge awsMcpKnowledge(
+            @Value("${ananke.cloud.aws.mcp-enabled:true}") boolean enabled,
+            @Value("${ananke.cloud.aws.mcp-endpoint:https://aws-mcp.us-east-1.api.aws/mcp}") String endpoint,
+            @Value("${ananke.cloud.aws.mcp-region:us-east-1}") String region,
+            com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        if (!enabled) return null;
+        return new com.stocktracker.packs.cloud.aws.AwsMcpKnowledge(URI.create(endpoint), region,
+                java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(10)).build(),
+                mapper, Clock.systemUTC());
+    }
+
+    /** Agents get AWS tools only while an AWS account is linked (CloudToolGate checks isLinked). */
+    @Bean
+    public com.stocktracker.packs.cloud.aws.AwsActionToolSource awsActionToolSource(
+            AwsAccounts accounts, AwsMachines machines, EgressIp egress,
+            ObjectProvider<com.stocktracker.packs.cloud.aws.AwsMcpKnowledge> mcp) {
+        return new com.stocktracker.packs.cloud.aws.AwsActionToolSource(accounts, machines, egress, mcp.getIfAvailable());
+    }
+
+    /** §7.4 idle auto-stop. Every 5 minutes by default. */
+    @Bean
+    public IdleSweeper idleSweeper(AwsMachines machines) {
+        return new IdleSweeper(machines);
+    }
+
+    public static class IdleSweeper {
+        private final AwsMachines machines;
+
+        IdleSweeper(AwsMachines machines) {
+            this.machines = machines;
+        }
+
+        @Scheduled(initialDelayString = "${ananke.cloud.idle-sweep-initial-ms:120000}",
+                   fixedDelayString = "${ananke.cloud.idle-sweep-ms:300000}")
+        public void sweep() {
+            var stopped = machines.idleSweep();
+            if (!stopped.isEmpty()) log.info("Idle auto-stop: stopped cloud machine(s) {}", stopped);
+        }
+    }
+}

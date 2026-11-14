@@ -9,15 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PacksRouteImport } from './routes/packs'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as MetricsRouteImport } from './routes/metrics'
 import { Route as LiveRouteImport } from './routes/live'
 import { Route as DataRouteImport } from './routes/data'
+import { Route as CopilotRouteImport } from './routes/copilot'
 import { Route as BacktestingRouteImport } from './routes/backtesting'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as JupyterApiSplatRouteImport } from './routes/jupyter-api.$'
 import { Route as DevControlsRouteImport } from './routes/dev/controls'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PacksRoute = PacksRouteImport.update({
+  id: '/packs',
+  path: '/packs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ModelsRoute = ModelsRouteImport.update({
   id: '/models',
   path: '/models',
@@ -36,6 +49,11 @@ const LiveRoute = LiveRouteImport.update({
 const DataRoute = DataRouteImport.update({
   id: '/data',
   path: '/data',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CopilotRoute = CopilotRouteImport.update({
+  id: '/copilot',
+  path: '/copilot',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BacktestingRoute = BacktestingRouteImport.update({
@@ -62,20 +80,26 @@ const DevControlsRoute = DevControlsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/backtesting': typeof BacktestingRoute
+  '/copilot': typeof CopilotRoute
   '/data': typeof DataRoute
   '/live': typeof LiveRoute
   '/metrics': typeof MetricsRoute
   '/models': typeof ModelsRoute
+  '/packs': typeof PacksRoute
+  '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
   '/jupyter-api/$': typeof JupyterApiSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/backtesting': typeof BacktestingRoute
+  '/copilot': typeof CopilotRoute
   '/data': typeof DataRoute
   '/live': typeof LiveRoute
   '/metrics': typeof MetricsRoute
   '/models': typeof ModelsRoute
+  '/packs': typeof PacksRoute
+  '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
   '/jupyter-api/$': typeof JupyterApiSplatRoute
 }
@@ -83,10 +107,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/backtesting': typeof BacktestingRoute
+  '/copilot': typeof CopilotRoute
   '/data': typeof DataRoute
   '/live': typeof LiveRoute
   '/metrics': typeof MetricsRoute
   '/models': typeof ModelsRoute
+  '/packs': typeof PacksRoute
+  '/settings': typeof SettingsRoute
   '/dev/controls': typeof DevControlsRoute
   '/jupyter-api/$': typeof JupyterApiSplatRoute
 }
@@ -95,30 +122,39 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/backtesting'
+    | '/copilot'
     | '/data'
     | '/live'
     | '/metrics'
     | '/models'
+    | '/packs'
+    | '/settings'
     | '/dev/controls'
     | '/jupyter-api/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/backtesting'
+    | '/copilot'
     | '/data'
     | '/live'
     | '/metrics'
     | '/models'
+    | '/packs'
+    | '/settings'
     | '/dev/controls'
     | '/jupyter-api/$'
   id:
     | '__root__'
     | '/'
     | '/backtesting'
+    | '/copilot'
     | '/data'
     | '/live'
     | '/metrics'
     | '/models'
+    | '/packs'
+    | '/settings'
     | '/dev/controls'
     | '/jupyter-api/$'
   fileRoutesById: FileRoutesById
@@ -126,16 +162,33 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BacktestingRoute: typeof BacktestingRoute
+  CopilotRoute: typeof CopilotRoute
   DataRoute: typeof DataRoute
   LiveRoute: typeof LiveRoute
   MetricsRoute: typeof MetricsRoute
   ModelsRoute: typeof ModelsRoute
+  PacksRoute: typeof PacksRoute
+  SettingsRoute: typeof SettingsRoute
   DevControlsRoute: typeof DevControlsRoute
   JupyterApiSplatRoute: typeof JupyterApiSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/packs': {
+      id: '/packs'
+      path: '/packs'
+      fullPath: '/packs'
+      preLoaderRoute: typeof PacksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/models': {
       id: '/models'
       path: '/models'
@@ -162,6 +215,13 @@ declare module '@tanstack/react-router' {
       path: '/data'
       fullPath: '/data'
       preLoaderRoute: typeof DataRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/copilot': {
+      id: '/copilot'
+      path: '/copilot'
+      fullPath: '/copilot'
+      preLoaderRoute: typeof CopilotRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/backtesting': {
@@ -198,10 +258,13 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BacktestingRoute: BacktestingRoute,
+  CopilotRoute: CopilotRoute,
   DataRoute: DataRoute,
   LiveRoute: LiveRoute,
   MetricsRoute: MetricsRoute,
   ModelsRoute: ModelsRoute,
+  PacksRoute: PacksRoute,
+  SettingsRoute: SettingsRoute,
   DevControlsRoute: DevControlsRoute,
   JupyterApiSplatRoute: JupyterApiSplatRoute,
 }
