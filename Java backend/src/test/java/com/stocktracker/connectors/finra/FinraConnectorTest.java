@@ -79,7 +79,10 @@ class FinraConnectorTest {
                 return;
             }
             String sym = body.path("compareFilters").path(0).path("fieldValue").asText();
-            if (p.endsWith("/regShoDaily")) {
+            if (p.endsWith("/regShoDaily") && sym.equals("NODATA")) {
+                ex.sendResponseHeaders(204, -1);   // FINRA answers 204 with no body when nothing matches
+                ex.close();
+            } else if (p.endsWith("/regShoDaily")) {
                 send(ex, 200, sym.equals("BRK/B") ? """
                         [{"reportingFacilityCode":"NCTRF","totalParQuantity":123970.498977,"shortParQuantity":72243.724369,"marketCode":"B","tradeReportDate":"2026-11-12","securitiesInformationProcessorSymbolIdentifier":"BRK/B","shortExemptParQuantity":297},
                          {"reportingFacilityCode":"NQTRF","totalParQuantity":8782037.344107,"shortParQuantity":4650880.363833,"marketCode":"Q","tradeReportDate":"2026-11-12","securitiesInformationProcessorSymbolIdentifier":"BRK/B","shortExemptParQuantity":27084},
@@ -178,6 +181,14 @@ class FinraConnectorTest {
         assertThatThrownBy(() -> fresh.test(ctx("cid", null)))
                 .satisfies(e -> assertThat(((ConnectorException) e).kind()).isEqualTo(ConnectorException.Kind.NOT_LINKED));
         assertThat(finra.test(ctx(null, null))).contains("anonymous");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void noRows_is204_andBecomesAWarning() throws Exception {
+        Map<String, Object> out = (Map<String, Object>) finra.shortVolume(ctx(null, null), om.readTree("{\"ticker\":\"NODATA\"}"));
+        assertThat((List<?>) out.get("days")).isEmpty();
+        assertThat(out.get("warning")).asString().contains("check the ticker");
     }
 
     @Test
