@@ -175,7 +175,7 @@ class ConnectorPersistenceIntegrationTest {
         mvc.perform(delete("/api/connectors/newsy/credentials"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("NOT_LINKED"))
-                .andExpect(jsonPath("$.enabled").value(true));
+                .andExpect(jsonPath("$.enabled").value(false));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ananke_secrets WHERE scope = 'connector:newsy'", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM connector_accounts", Integer.class)).isZero();
     }

@@ -192,6 +192,7 @@ export async function stubLinkedSec(
   const linked = {
     ...secFixture.connector,
     linked: true,
+    enabled: true,
     status: "READY",
     fields: (secFixture.connector.fields as Record<string, unknown>[]).map((f) => ({
       ...f,

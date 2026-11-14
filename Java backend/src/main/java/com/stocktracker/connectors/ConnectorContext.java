@@ -67,7 +67,47 @@ public final class ConnectorContext {
 
     /** GET → parsed JSON. */
     public JsonNode getJson(URI uri, Map<String, String> headers) {
-        String body = get(uri, headers, "application/json");
+        return parse(get(uri, headers, "application/json"));
+    }
+
+    /** GET → parsed JSON, no extra headers. */
+    public JsonNode getJson(URI uri) {
+        return getJson(uri, Map.of());
+    }
+
+    /** GET → body text; non-2xx statuses become {@link ConnectorException}s. */
+    public String get(URI uri, Map<String, String> headers, String accept) {
+        HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).GET();
+        if (accept != null) b.header("Accept", accept);
+        return send(b, headers);
+    }
+
+    /** POST a JSON body → parsed JSON. */
+    public JsonNode postJson(URI uri, Map<String, String> headers, Object body) {
+        String json;
+        try {
+            json = body instanceof String s ? s : mapper.writeValueAsString(body);
+        } catch (Exception e) {
+            throw ConnectorException.badRequest("Could not encode the request body.");
+        }
+        HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "application/json").header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json));
+        return parse(send(b, headers));
+    }
+
+    /** POST an {@code application/x-www-form-urlencoded} body (OAuth token endpoints) → parsed JSON. */
+    public JsonNode postForm(URI uri, Map<String, String> headers, Map<String, String> form) {
+        String body = form.entrySet().stream()
+                .map(e -> ToolArgs.enc(e.getKey()) + "=" + ToolArgs.enc(e.getValue()))
+                .reduce((x, y) -> x + "&" + y).orElse("");
+        HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30))
+                .header("Content-Type", "application/x-www-form-urlencoded").header("Accept", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body));
+        return parse(send(b, headers));
+    }
+
+    private JsonNode parse(String body) {
         try {
             return mapper.readTree(body);
         } catch (Exception e) {
@@ -75,12 +115,13 @@ public final class ConnectorContext {
         }
     }
 
-    /** GET → body text; non-2xx statuses become {@link ConnectorException}s. */
-    public String get(URI uri, Map<String, String> headers, String accept) {
+    /** Sends one request (counting a rate-limit permit); non-2xx statuses become {@link ConnectorException}s. */
+    private String send(HttpRequest.Builder b, Map<String, String> headers) {
         acquirePermit();
-        HttpRequest.Builder b = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30)).GET();
-        if (accept != null) b.header("Accept", accept);
         if (headers != null) headers.forEach(b::header);
+        if (headers == null || headers.keySet().stream().noneMatch(k -> k.equalsIgnoreCase("User-Agent"))) {
+            b.header("User-Agent", "Ananke/1");
+        }
         HttpResponse<String> r;
         try {
             r = http.send(b.build(), HttpResponse.BodyHandlers.ofString());

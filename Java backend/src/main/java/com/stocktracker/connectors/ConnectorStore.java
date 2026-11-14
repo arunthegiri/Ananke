@@ -14,8 +14,9 @@ public interface ConnectorStore {
                    Instant lastTestAt, Boolean lastTestOk, String lastTestMessage,
                    Instant lastCallAt, Instant lastErrorAt, String lastError) {
 
+        /** Never-touched connector: off. Linking switches it on; keyless ones are switched on by the user. */
         public static Account fresh(String id) {
-            return new Account(id, true, null, null, null, null, null, null, null);
+            return new Account(id, false, null, null, null, null, null, null, null);
         }
 
         public Account withEnabled(boolean e) {

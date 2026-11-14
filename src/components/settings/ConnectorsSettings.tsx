@@ -162,7 +162,7 @@ function ConnectorRow({ connector: c }: { connector: Connector }) {
           <Switch
             id={switchId}
             checked={c.enabled}
-            disabled={toggle.isPending}
+            disabled={toggle.isPending || !c.linked}
             onCheckedChange={(enabled) => toggle.mutate({ id: c.id, enabled })}
             aria-label={`${c.enabled ? "Turn off" : "Turn on"} ${c.name}`}
             data-testid={`connector-switch-${c.id}`}

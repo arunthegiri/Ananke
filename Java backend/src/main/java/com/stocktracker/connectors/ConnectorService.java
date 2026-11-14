@@ -84,8 +84,8 @@ public class ConnectorService {
 
     public Status status(Connector c) {
         ConnectorStore.Account a = account(c.spec().id());
-        if (!a.enabled()) return Status.DISABLED;
         if (!isLinked(c)) return Status.NOT_LINKED;
+        if (!a.enabled()) return Status.DISABLED;
         if (a.lastError() != null && (a.lastCallAt() == null || a.lastErrorAt().isAfter(a.lastCallAt()))) return Status.ERROR;
         if (Boolean.FALSE.equals(a.lastTestOk()) && a.lastCallAt() == null) return Status.ERROR;
         return Status.READY;
@@ -194,13 +194,12 @@ public class ConnectorService {
         ConnectorSpec spec = c.spec();
         ConnectorTool tool = c.tools().stream().filter(t -> t.name().equals(toolName)).findFirst()
                 .orElseThrow(() -> new NoSuchElementException(spec.name() + " has no tool " + toolName));
-        ConnectorStore.Account account = account(connectorId);
-        if (!account.enabled()) {
-            throw new ConnectorException(ConnectorException.Kind.DISABLED, spec.name() + " is switched off in Settings → Connectors.");
-        }
         if (!isLinked(c)) {
             throw new ConnectorException(ConnectorException.Kind.NOT_LINKED,
                     spec.name() + " is not linked. Add its key in Settings → Connectors.");
+        }
+        if (!account(connectorId).enabled()) {
+            throw new ConnectorException(ConnectorException.Kind.DISABLED, spec.name() + " is switched off in Settings → Connectors.");
         }
         JsonNode a = args == null || !args.isObject() ? mapper.createObjectNode() : args;
         String key = connectorId + "\u0000" + toolName + "\u0000" + a;
