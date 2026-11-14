@@ -30,10 +30,10 @@ import { useLlmSettings, useUpdateLlmSettings, useUseEnvDefault } from "@/hooks/
 import { cn } from "@/lib/utils";
 
 /**
- * Settings → AI provider (PRD MC 01, bring your own AI). Pick a provider,
- * paste its API key, choose a model, and make it the Copilot's provider.
- * Keys are sent once and never read back; the server only reports a hint.
- * Mounted once (TopBar); opened from anywhere via openAiSettings().
+ * Settings → AI provider (PRD MC 01, bring your own AI) as a modal. The
+ * canonical home is the /settings page; this dialog is the in-context
+ * shortcut (Copilot's model picker / "not configured" state). Mounted once
+ * (TopBar); opened via openAiSettings().
  */
 export function AiProviderSettings() {
   const { open, provider: requested } = useSyncExternalStore(
@@ -41,18 +41,6 @@ export function AiProviderSettings() {
     getAiSettings,
     getAiSettingsServer,
   );
-  const settings = useLlmSettings(open);
-  const [selected, setSelected] = useState<string | null>(null);
-
-  // On open: jump to the requested provider, else the active one, else the first.
-  useEffect(() => {
-    if (!open || !settings.data) return;
-    setSelected(
-      requested ?? settings.data.activeProvider ?? settings.data.providers[0]?.id ?? null,
-    );
-  }, [open, requested, settings.data?.activeProvider]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const provider = settings.data?.providers.find((p) => p.id === selected) ?? null;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && closeAiSettings()}>
@@ -64,72 +52,108 @@ export function AiProviderSettings() {
             shown again after saving.
           </DialogDescription>
         </DialogHeader>
-
-        {settings.data && <QuickAdd onAdded={(id) => setSelected(id)} />}
-
-        {settings.isError ? (
-          <div className="p-5">
-            <PanelState
-              kind="error"
-              art="plug"
-              message="Couldn't load AI settings"
-              detail={[
-                settings.error instanceof Error ? settings.error.message : "Unknown error",
-                "Is the Ananke backend running? It serves /api/settings/llm.",
-              ]}
-            />
-          </div>
-        ) : !settings.data ? (
-          <div className="flex h-80 items-center justify-center text-text-muted">
-            <Loader2 className="h-4 w-4 animate-spin" />
-          </div>
-        ) : (
-          <div className="grid h-[400px] grid-cols-[200px_1fr]">
-            <ul
-              className="overflow-y-auto border-r border-border-subtle py-2"
-              role="listbox"
-              aria-label="Providers"
-            >
-              {settings.data.providers.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={p.id === selected}
-                    onClick={() => setSelected(p.id)}
-                    data-testid={`ai-provider-${p.id}`}
-                    className={cn(
-                      "flex w-full items-center gap-2 px-4 py-2 text-left text-xs transition-colors",
-                      p.id === selected
-                        ? "bg-surface-2 text-text-primary"
-                        : "text-text-secondary hover:bg-surface-1",
-                    )}
-                  >
-                    <span className="flex-1 truncate">{p.label}</span>
-                    {settings.data!.activeProvider === p.id ? (
-                      <CircleDot className="h-3 w-3 text-primary" aria-label="Active" />
-                    ) : p.keySet ? (
-                      <KeyRound className="h-3 w-3 text-text-muted" aria-label="Key saved" />
-                    ) : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-
-            <div className="flex min-h-0 flex-col">
-              {provider ? (
-                <ProviderForm
-                  key={provider.id}
-                  provider={provider}
-                  isActive={settings.data.activeProvider === provider.id}
-                />
-              ) : null}
-              <EffectiveFooter />
-            </div>
-          </div>
-        )}
+        {open && <AiProviderPanel requested={requested} bodyClassName="h-[400px]" />}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * The API-key center itself: paste-any-key quick add, the provider list, and
+ * the selected provider's key / base URL / model form. Shared by the
+ * /settings page and the dialog above.
+ */
+export function AiProviderPanel({
+  requested = null,
+  bodyClassName,
+}: {
+  requested?: string | null;
+  bodyClassName?: string;
+}) {
+  const settings = useLlmSettings(true);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // Jump to the requested provider, else the active one, else the first.
+  useEffect(() => {
+    if (!settings.data) return;
+    setSelected(
+      requested ?? settings.data.activeProvider ?? settings.data.providers[0]?.id ?? null,
+    );
+  }, [requested, settings.data?.activeProvider]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const provider = settings.data?.providers.find((p) => p.id === selected) ?? null;
+
+  return (
+    <>
+      {settings.data && <QuickAdd onAdded={(id) => setSelected(id)} />}
+
+      {settings.isError ? (
+        <div className="p-5">
+          <PanelState
+            kind="error"
+            art="plug"
+            message="Couldn't load AI settings"
+            detail={[
+              settings.error instanceof Error ? settings.error.message : "Unknown error",
+              "Is the Ananke backend running? It serves /api/settings/llm.",
+            ]}
+          />
+        </div>
+      ) : !settings.data ? (
+        <div
+          className={cn(
+            "flex items-center justify-center text-text-muted",
+            bodyClassName ?? "h-80",
+          )}
+        >
+          <Loader2 className="h-4 w-4 animate-spin" />
+        </div>
+      ) : (
+        <div className={cn("grid min-h-0 grid-cols-[200px_1fr]", bodyClassName)}>
+          <ul
+            className="overflow-y-auto border-r border-border-subtle py-2"
+            role="listbox"
+            aria-label="Providers"
+          >
+            {settings.data.providers.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={p.id === selected}
+                  onClick={() => setSelected(p.id)}
+                  data-testid={`ai-provider-${p.id}`}
+                  className={cn(
+                    "flex w-full items-center gap-2 px-4 py-2 text-left text-xs transition-colors",
+                    p.id === selected
+                      ? "bg-surface-2 text-text-primary"
+                      : "text-text-secondary hover:bg-surface-1",
+                  )}
+                >
+                  <span className="flex-1 truncate">{p.label}</span>
+                  {settings.data!.activeProvider === p.id ? (
+                    <CircleDot className="h-3 w-3 text-primary" aria-label="Active" />
+                  ) : p.keySet ? (
+                    <KeyRound className="h-3 w-3 text-text-muted" aria-label="Key saved" />
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="flex min-h-0 flex-col">
+            {provider ? (
+              <ProviderForm
+                key={provider.id}
+                provider={provider}
+                isActive={settings.data.activeProvider === provider.id}
+              />
+            ) : null}
+            <EffectiveFooter />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

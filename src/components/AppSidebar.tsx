@@ -10,12 +10,21 @@ import {
   Brain,
   Sparkles,
   TerminalSquare,
+  Settings,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getEndpointStatus, subscribeProbe, type EndpointName } from "@/lib/api/health-probe";
 import { cn } from "@/lib/utils";
 
-type NavRoute = "/" | "/data" | "/backtesting" | "/live" | "/metrics" | "/models" | "/copilot";
+type NavRoute =
+  | "/"
+  | "/data"
+  | "/backtesting"
+  | "/live"
+  | "/metrics"
+  | "/models"
+  | "/copilot"
+  | "/settings";
 
 type NavItem = {
   to: NavRoute;
@@ -33,6 +42,9 @@ const NAV: NavItem[] = [
   { to: "/metrics", label: "Metrics", icon: Gauge },
   { to: "/models", label: "Models", icon: Brain },
 ];
+
+/** Pinned to the bottom of the rail, macOS-style. */
+const FOOTER_NAV: NavItem[] = [{ to: "/settings", label: "Settings", icon: Settings }];
 
 /** Default (empty) badge map — AppSidebarWithHealth below supplies the live one. */
 const NO_NOTIFICATIONS: Partial<Record<NavRoute, boolean>> = {};
@@ -93,7 +105,8 @@ export function AppSidebar({ notifications = NO_NOTIFICATIONS }: AppSidebarProps
 
       <TooltipProvider delayDuration={200}>
         <nav className="flex flex-1 flex-col gap-0.5 py-2">
-          {NAV.map((item) => {
+          {[...NAV, null, ...FOOTER_NAV].map((item) => {
+            if (!item) return <div key="spacer" className="flex-1" />;
             const Icon = item.icon;
             const active = item.exact ? pathname === item.to : pathname.startsWith(item.to);
             return (

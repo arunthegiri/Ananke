@@ -74,7 +74,7 @@ src/
   components/terminal/ ← the design system: TerminalPanel, tabs, PanelState, controls/, table/
   components/copilot/  ← copilot surfaces: CodeBlock, BacktestCard, CopilotMarkdown
   components/metrics/  ← §15 analysis panels (strategy table, universe ranking, correlation, …)
-  routes/           ← /, /data, /backtesting, /live, /metrics, /models, /copilot (+ dev/controls, DEV-only)
+  routes/           ← /, /data, /backtesting, /live, /metrics, /models, /copilot, /settings (+ dev/controls, DEV-only)
 executor/           ← stdlib Python code executor mounted into the Jupyter container (copilot M0)
   routeTree.gen.ts  ← AUTO-GENERATED — never edit
 ```

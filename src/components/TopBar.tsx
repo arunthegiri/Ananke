@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { KeyRound, Search } from "lucide-react";
 
 import { liveApi } from "@/lib/api/live";
@@ -8,7 +9,6 @@ import { togglePalette } from "@/lib/command-registry";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeSettings } from "@/components/ThemeSettings";
 import { AiProviderSettings } from "@/components/settings/AiProviderSettings";
-import { openAiSettings } from "@/lib/ai-settings-dialog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,16 +26,16 @@ export function TopBar() {
     <header className="flex h-12 shrink-0 items-center gap-4 border-b border-border-subtle bg-surface-0 px-3">
       <div className="flex flex-1 items-center">
         <ThemeSettings />
-        <button
-          type="button"
+        <Link
+          to="/settings"
+          search={{ section: "ai" }}
           data-testid="topbar-ai-settings"
-          onClick={() => openAiSettings()}
           aria-label="AI provider and API keys"
           className="ml-1 flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-text-muted transition-colors hover:bg-surface-2 hover:text-text-secondary"
         >
           <KeyRound className="h-3.5 w-3.5" />
-          AI provider
-        </button>
+          API keys
+        </Link>
         <AiProviderSettings />
       </div>
       <button

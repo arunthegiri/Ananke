@@ -246,9 +246,38 @@ function createWindow(baseUrl) {
   return win;
 }
 
+/** Client-side navigation in the focused window (no full reload; see __root's listener). */
+function openRoute(path) {
+  const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  if (!win) return;
+  win.show();
+  win.webContents.executeJavaScript(
+    `window.dispatchEvent(new CustomEvent("ananke:navigate", { detail: ${JSON.stringify(path)} }))`,
+  );
+}
+
 function buildMenu() {
   const template = [
-    { role: "appMenu" },
+    {
+      role: "appMenu",
+      submenu: [
+        { role: "about" },
+        { type: "separator" },
+        {
+          label: "Settings…",
+          accelerator: "CmdOrCtrl+,",
+          click: () => openRoute("/settings?section=ai"),
+        },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    },
     { role: "editMenu" },
     {
       label: "View",
