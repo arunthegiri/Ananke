@@ -172,7 +172,13 @@ public class BlueskyConnector implements Connector {
 
     private JsonNode search(ConnectorContext ctx, Optional<String> bearer, String pathAndQuery) {
         if (bearer.isPresent()) {
-            return ctx.getJson(URI.create(pds + pathAndQuery), Map.of("Authorization", "Bearer " + bearer.get()));
+            try {
+                return ctx.getJson(URI.create(pds + pathAndQuery), Map.of("Authorization", "Bearer " + bearer.get()));
+            } catch (ConnectorException e) {
+                // An expired or revoked session: forget it so the next call signs in again.
+                if (e.kind() == ConnectorException.Kind.AUTH || e.getMessage().contains("HTTP 400")) session = null;
+                throw e;
+            }
         }
         return ctx.getJson(URI.create(appview + pathAndQuery));
     }
